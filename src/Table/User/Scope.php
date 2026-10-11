@@ -77,7 +77,7 @@ class Scope extends Generated\UserScopeTable
                 // load all sub scopes
                 $condition = Condition::withAnd();
                 $condition->like(Generated\ScopeTable::COLUMN_NAME, $assignedScope['name'] . '.%');
-                foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($condition, 0, 0, Generated\ScopeColumn::NAME, \PSX\Sql\OrderBy::ASC) as $subScope) {
+                foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($condition, 0, PHP_INT_MAX, Generated\ScopeColumn::NAME, \PSX\Sql\OrderBy::ASC) as $subScope) {
                     $scopes[$subScope->getName()] = ['id' => $subScope->getId(), 'name' => $subScope->getName(), 'description' => $subScope->getDescription()];
                 }
             }
@@ -113,7 +113,7 @@ class Scope extends Generated\UserScopeTable
         $result = [];
         $condition = Condition::withAnd();
         $condition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
-        foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($condition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+        foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($condition, 0, PHP_INT_MAX, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
             $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
         }
         return $result;
@@ -143,7 +143,7 @@ class Scope extends Generated\UserScopeTable
         $result = [];
         $condition = Condition::withAnd();
         $condition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
-        foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($condition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+        foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($condition, 0, PHP_INT_MAX, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
             $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
         }
         return $result;

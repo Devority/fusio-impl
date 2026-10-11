@@ -107,7 +107,7 @@ class Scope extends Generated\ScopeTable
         $condition->like(self::COLUMN_NAME, $scope . '.%');
 
         $result = [];
-        foreach ($this->findAll($condition, 0, 0, Generated\ScopeColumn::NAME, \PSX\Sql\OrderBy::ASC) as $scope) {
+        foreach ($this->findAll($condition, 0, PHP_INT_MAX, Generated\ScopeColumn::NAME, \PSX\Sql\OrderBy::ASC) as $scope) {
             $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
         }
         return $result;

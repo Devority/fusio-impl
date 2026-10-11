@@ -64,7 +64,7 @@ class DatabaseParser implements RoutingParserInterface
         }
 
         $collection = new RoutingCollection();
-        $result = $this->operationTable->findAll($condition, 0, 0, Table\Generated\OperationColumn::NAME, \PSX\Sql\OrderBy::ASC);
+        $result = $this->operationTable->findAll($condition, 0, PHP_INT_MAX, Table\Generated\OperationColumn::NAME, \PSX\Sql\OrderBy::ASC);
 
         foreach ($result as $row) {
             $row = $row->toRecord()->getAll();

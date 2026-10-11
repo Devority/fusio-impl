@@ -59,7 +59,7 @@ class AppRepository implements Repository\AppInterface
         $condition->equals(Table\Generated\AppTable::COLUMN_STATUS, Table\App::STATUS_ACTIVE);
 
         $apps = [];
-        foreach ($this->appTable->findAll($condition, 0, 0, Table\Generated\AppColumn::ID, \PSX\Sql\OrderBy::DESC) as $row) {
+        foreach ($this->appTable->findAll($condition, 0, PHP_INT_MAX, Table\Generated\AppColumn::ID, \PSX\Sql\OrderBy::DESC) as $row) {
             $apps[] = $this->newApp($row->toRecord()->getAll(), []);
         }
 

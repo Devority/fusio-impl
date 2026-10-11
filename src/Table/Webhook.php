@@ -78,7 +78,7 @@ class Webhook extends Generated\WebhookTable
         }
 
         $result = [];
-        foreach ($this->findAll($condition, 0, 0, \Fusio\Impl\Table\Generated\WebhookColumn::ID, \PSX\Sql\OrderBy::ASC) as $webhook) {
+        foreach ($this->findAll($condition, 0, PHP_INT_MAX, \Fusio\Impl\Table\Generated\WebhookColumn::ID, \PSX\Sql\OrderBy::ASC) as $webhook) {
             $result[] = ['id' => $webhook->getId(), 'endpoint' => $webhook->getEndpoint()];
         }
         return $result;

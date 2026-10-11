@@ -111,7 +111,7 @@ class Scope extends Generated\AppScopeTable
         $scopeCondition->equals(Generated\ScopeTable::COLUMN_TENANT_ID, $tenantId);
         $scopeCondition->equals(Generated\ScopeTable::COLUMN_STATUS, Table\Scope::STATUS_ACTIVE);
         $scopeCondition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
-        foreach ($this->getTable(Table\Scope::class)->findAll($scopeCondition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+        foreach ($this->getTable(Table\Scope::class)->findAll($scopeCondition, 0, PHP_INT_MAX, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
             $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
         }
         return $result;
@@ -152,7 +152,7 @@ class Scope extends Generated\AppScopeTable
         $scopeCondition->equals(Generated\ScopeTable::COLUMN_TENANT_ID, $tenantId);
         $scopeCondition->equals(Generated\ScopeTable::COLUMN_STATUS, Table\Scope::STATUS_ACTIVE);
         $scopeCondition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
-        foreach ($this->getTable(Table\Scope::class)->findAll($scopeCondition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+        foreach ($this->getTable(Table\Scope::class)->findAll($scopeCondition, 0, PHP_INT_MAX, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
             $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
         }
         return $result;

@@ -54,7 +54,7 @@ class Commit extends Generated\SchemaCommitTable
     public function findAllLatestCommitIds(): array
     {
         $latest = [];
-        foreach ($this->findAll(null, 0, 0, Generated\SchemaCommitColumn::ID, \PSX\Sql\OrderBy::ASC) as $row) {
+        foreach ($this->findAll(null, 0, PHP_INT_MAX, Generated\SchemaCommitColumn::ID, \PSX\Sql\OrderBy::ASC) as $row) {
             $latest[$row->getSchemaId()] = $row->getId();
         }
         return array_values($latest);

@@ -56,7 +56,7 @@ class UserRepository implements Repository\UserInterface
         $condition->equals(Table\Generated\UserTable::COLUMN_STATUS, Table\User::STATUS_ACTIVE);
 
         $users = [];
-        foreach ($this->userTable->findAll($condition, 0, 0, Table\Generated\UserColumn::ID, \PSX\Sql\OrderBy::DESC) as $row) {
+        foreach ($this->userTable->findAll($condition, 0, PHP_INT_MAX, Table\Generated\UserColumn::ID, \PSX\Sql\OrderBy::DESC) as $row) {
             $users[] = $this->newUser($row->toRecord()->getAll());
         }
 

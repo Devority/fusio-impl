@@ -72,7 +72,7 @@ class Scope extends Generated\RoleScopeTable
         if (!empty($scopeIds)) {
             $scopeCondition = Condition::withAnd();
             $scopeCondition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
-            foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($scopeCondition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+            foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($scopeCondition, 0, PHP_INT_MAX, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
                 $assignedScopes[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
             }
         }
@@ -85,7 +85,7 @@ class Scope extends Generated\RoleScopeTable
                 // load all sub scopes
                 $subCondition = Condition::withAnd();
                 $subCondition->like(Generated\ScopeTable::COLUMN_NAME, $assignedScope['name'] . '.%');
-                foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($subCondition, 0, 0, Generated\ScopeColumn::NAME, \PSX\Sql\OrderBy::ASC) as $subScope) {
+                foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($subCondition, 0, PHP_INT_MAX, Generated\ScopeColumn::NAME, \PSX\Sql\OrderBy::ASC) as $subScope) {
                     $scopes[$subScope->getName()] = ['id' => $subScope->getId(), 'name' => $subScope->getName(), 'description' => $subScope->getDescription()];
                 }
             }

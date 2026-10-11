@@ -61,7 +61,7 @@ readonly class Runner
     public function authenticate(UserContext $context): AccessToken
     {
         $scopes = [];
-        foreach ($this->scopeTable->findAll(null, 0, 0, Table\Generated\ScopeColumn::NAME, \PSX\Sql\OrderBy::ASC) as $scope) {
+        foreach ($this->scopeTable->findAll(null, 0, PHP_INT_MAX, Table\Generated\ScopeColumn::NAME, \PSX\Sql\OrderBy::ASC) as $scope) {
             $scopes[] = $scope->getName();
         }
         $token = $this->tokenService->generate($context->getTenantId(), Table\Category::TYPE_DEFAULT, $context->getAppId(), $context->getUserId(), 'Fusio-Test', $scopes, '127.0.0.1', new \DateInterval('PT30M'));

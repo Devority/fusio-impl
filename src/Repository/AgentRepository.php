@@ -55,7 +55,7 @@ class AgentRepository implements Repository\AgentInterface
         $condition->equals(Table\Generated\AgentTable::COLUMN_STATUS, Table\Agent::STATUS_ACTIVE);
 
         $actions = [];
-        foreach ($this->agentTable->findAll($condition, 0, 0, Table\Generated\AgentColumn::NAME, \PSX\Sql\OrderBy::ASC) as $row) {
+        foreach ($this->agentTable->findAll($condition, 0, PHP_INT_MAX, Table\Generated\AgentColumn::NAME, \PSX\Sql\OrderBy::ASC) as $row) {
             $actions[] = $this->newAgent($row->toRecord()->getAll());
         }
 

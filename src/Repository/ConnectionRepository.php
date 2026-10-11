@@ -56,7 +56,7 @@ class ConnectionRepository implements Repository\ConnectionInterface
         $condition->equals(Table\Generated\ConnectionTable::COLUMN_STATUS, Table\Connection::STATUS_ACTIVE);
 
         $connections = [];
-        foreach ($this->connectionTable->findAll($condition, 0, 0, Table\Generated\ConnectionColumn::NAME, \PSX\Sql\OrderBy::ASC) as $row) {
+        foreach ($this->connectionTable->findAll($condition, 0, PHP_INT_MAX, Table\Generated\ConnectionColumn::NAME, \PSX\Sql\OrderBy::ASC) as $row) {
             $connections[] = $this->newConnection($row->toRecord()->getAll());
         }
 

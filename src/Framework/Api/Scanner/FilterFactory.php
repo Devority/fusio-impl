@@ -72,7 +72,7 @@ class FilterFactory extends PSXFilterFactory
         $condition->equals(Table\Generated\CategoryTable::COLUMN_TENANT_ID, $this->frameworkConfig->getTenantId());
 
         $first = null;
-        $result = $this->categoryTable->findAll($condition, 0, 0, Table\Generated\CategoryColumn::ID, \PSX\Sql\OrderBy::ASC);
+        $result = $this->categoryTable->findAll($condition, 0, PHP_INT_MAX, Table\Generated\CategoryColumn::ID, \PSX\Sql\OrderBy::ASC);
         foreach ($result as $row) {
             $row = $row->toRecord()->getAll();
             if ($first === null) {

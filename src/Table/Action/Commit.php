@@ -56,7 +56,7 @@ class Commit extends Generated\ActionCommitTable
         // one latest commit per action — iterate in id order, last write wins
         $latest = [];
         $condition = \PSX\Sql\Condition::withAnd();
-        foreach ($this->findAll($condition, 0, 0, Generated\ActionCommitColumn::ID, \PSX\Sql\OrderBy::ASC) as $row) {
+        foreach ($this->findAll($condition, 0, PHP_INT_MAX, Generated\ActionCommitColumn::ID, \PSX\Sql\OrderBy::ASC) as $row) {
             $latest[$row->getActionId()] = $row->getId();
         }
         return array_values($latest);

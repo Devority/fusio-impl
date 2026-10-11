@@ -73,7 +73,7 @@ class Operation extends Generated\ScopeOperationTable
         $condition = Condition::withAnd();
         $condition->equals(self::COLUMN_OPERATION_ID, $operationId);
         $condition->equals(self::COLUMN_ALLOW, 1);
-        foreach ($this->findAll($condition, 0, 0, Generated\ScopeOperationColumn::ID, \PSX\Sql\OrderBy::ASC) as $link) {
+        foreach ($this->findAll($condition, 0, PHP_INT_MAX, Generated\ScopeOperationColumn::ID, \PSX\Sql\OrderBy::ASC) as $link) {
             $scopeIds[] = $link->getScopeId();
         }
         if (empty($scopeIds)) {

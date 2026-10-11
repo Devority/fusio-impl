@@ -63,7 +63,7 @@ class Scope extends Generated\PlanScopeTable
         $scopeCondition = Condition::withAnd();
         $scopeCondition->equals(Generated\ScopeTable::COLUMN_TENANT_ID, $tenantId);
         $scopeCondition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
-        foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($scopeCondition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+        foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($scopeCondition, 0, PHP_INT_MAX, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
             $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
         }
         return $result;

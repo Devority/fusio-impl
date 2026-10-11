@@ -57,7 +57,7 @@ class ActionRepository implements Repository\ActionInterface
         $condition->equals(Table\Generated\ActionTable::COLUMN_STATUS, Table\Action::STATUS_ACTIVE);
 
         $actions = [];
-        foreach ($this->actionTable->findAll($condition, 0, 0, Table\Generated\ActionColumn::NAME, \PSX\Sql\OrderBy::ASC) as $row) {
+        foreach ($this->actionTable->findAll($condition, 0, PHP_INT_MAX, Table\Generated\ActionColumn::NAME, \PSX\Sql\OrderBy::ASC) as $row) {
             $actions[] = $this->newAction($row->toRecord()->getAll());
         }
 
