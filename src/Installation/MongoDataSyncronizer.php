@@ -134,8 +134,32 @@ class MongoDataSyncronizer
         return $db->selectCollection($tableName)->findOne($filter) !== null;
     }
 
+    /**
+     * Column defaults which SQL DDL supplies — applied for missing keys only
+     */
+    private const DEFAULTS = [
+        'fusio_action'       => ['status' => 1],
+        'fusio_agent'        => ['status' => 1],
+        'fusio_app'          => ['status' => 1],
+        'fusio_connection'   => ['status' => 1],
+        'fusio_cronjob'      => ['status' => 1],
+        'fusio_event'        => ['status' => 1],
+        'fusio_operation'    => ['status' => 1, 'active' => 1, 'public' => 0, 'stability' => 2, 'costs' => 0],
+        'fusio_page'         => ['status' => 1],
+        'fusio_plan'         => ['status' => 1],
+        'fusio_rate'         => ['status' => 1],
+        'fusio_role'         => ['status' => 1],
+        'fusio_schema'       => ['status' => 1],
+        'fusio_scope'        => ['status' => 1],
+        'fusio_user'         => ['status' => 1],
+        'fusio_webhook'      => ['status' => 1],
+        'fusio_scope_operation' => ['allow' => 1],
+    ];
+
     private static function insert(MongoStorage $storage, string $tableName, array $row): void
     {
+        $row += self::DEFAULTS[$tableName] ?? [];
+
         $db = $storage->getDatabase();
         if (!isset($row['id'])) {
             // sequence counter for the integer PK consumers expect
