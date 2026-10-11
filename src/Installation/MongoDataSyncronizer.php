@@ -45,6 +45,18 @@ class MongoDataSyncronizer
         'fusio_event', 'fusio_cronjob', 'fusio_scope', 'fusio_page',
         'fusio_plan', 'fusio_category', 'fusio_role', 'fusio_connection',
         'fusio_identity', 'fusio_webhook', 'fusio_rate', 'fusio_agent',
+        'fusio_user', 'fusio_app',
+    ];
+
+    private const COMPOUND_KEYS = [
+        'fusio_user_scope'       => ['user_id', 'scope_id'],
+        'fusio_role_scope'       => ['role_id', 'scope_id'],
+        'fusio_plan_scope'       => ['plan_id', 'scope_id'],
+        'fusio_scope_operation'  => ['scope_id', 'operation_id'],
+        'fusio_rate_allocation'  => ['rate_id', 'operation_id'],
+        'fusio_app_scope'        => ['app_id', 'scope_id'],
+        'fusio_user_grant'       => ['user_id', 'app_id'],
+        'fusio_webhook'          => ['name'],
     ];
 
     public static function sync(MongoStorage $storage, ?string $projectKey = null): void
@@ -120,14 +132,15 @@ class MongoDataSyncronizer
     private static function exists(string $tableName, array $row, Database $db): bool
     {
         $filter = [];
-        if (in_array($tableName, self::NAME_KEYED, true) && isset($row['name'])) {
+        if (isset(self::COMPOUND_KEYS[$tableName])) {
+            foreach (self::COMPOUND_KEYS[$tableName] as $col) {
+                if (!array_key_exists($col, $row)) {
+                    return false;
+                }
+                $filter[$col] = $row[$col];
+            }
+        } elseif (in_array($tableName, self::NAME_KEYED, true) && isset($row['name'])) {
             $filter = ['name' => $row['name'], 'tenant_id' => $row['tenant_id'] ?? null];
-        } elseif (isset($row['scope_id'], $row['operation_id'])) {
-            $filter = ['scope_id' => $row['scope_id'], 'operation_id' => $row['operation_id']];
-        } elseif (isset($row['app_id'], $row['scope_id'])) {
-            $filter = ['app_id' => $row['app_id'], 'scope_id' => $row['scope_id']];
-        } elseif (isset($row['route_id'], $row['operation_id'])) {
-            $filter = ['route_id' => $row['route_id'], 'operation_id' => $row['operation_id']];
         } else {
             return false; // unknown dedup rule -> insert
         }
