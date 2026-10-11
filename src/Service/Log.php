@@ -42,15 +42,19 @@ class Log
     private static int $level = -1;
 
     private DBALConnection $connection;
+    private Table\Log $logTable;
+    private Table\Log\Error $logErrorTable;
 
     /**
      * @var array<array{0: float, 1: int|null}>
      */
     private array $stack;
 
-    public function __construct(DBALConnection $connection)
+    public function __construct(DBALConnection $connection, Table\Log $logTable, Table\Log\Error $logErrorTable)
     {
         $this->connection = $connection;
+        $this->logTable = $logTable;
+        $this->logErrorTable = $logErrorTable;
         $this->stack = [];
     }
 
