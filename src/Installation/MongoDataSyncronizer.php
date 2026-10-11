@@ -98,6 +98,7 @@ class MongoDataSyncronizer
 
     private static function insert(MongoStorage $storage, string $tableName, array $row): void
     {
+        $db = $storage->getDatabase();
         if (!isset($row['id'])) {
             // sequence counter for the integer PK consumers expect
             $seq = $db->selectCollection('psx_sequences')->findOneAndUpdate(
