@@ -34,10 +34,9 @@ class Scope extends Generated\UserScopeTable
 {
     public function deleteAllFromUser(int $userId): void
     {
-        $sql = 'DELETE FROM fusio_user_scope
-                      WHERE user_id = :id';
-
-        $this->connection->executeStatement($sql, ['id' => $userId]);
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_USER_ID, $userId);
+        $this->doDeleteBy($condition);
     }
 
     /**
@@ -76,15 +75,10 @@ class Scope extends Generated\UserScopeTable
 
             if (!str_contains((string) $assignedScope['name'], '.')) {
                 // load all sub scopes
-                $sql = 'SELECT scope.id,
-                               scope.name,
-                               scope.description
-                          FROM fusio_scope scope
-                         WHERE scope.name LIKE :name
-                      ORDER BY scope.name ASC';
-                $subScopes = $this->connection->fetchAllAssociative($sql, ['name' => $assignedScope['name'] . '.%']);
-                foreach ($subScopes as $subScope) {
-                    $scopes[$subScope['name']] = $subScope;
+                $condition = Condition::withAnd();
+                $condition->like(Generated\ScopeTable::COLUMN_NAME, $assignedScope['name'] . '.%');
+                foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($condition, 0, 0, Generated\ScopeColumn::NAME, \PSX\Sql\OrderBy::ASC) as $subScope) {
+                    $scopes[$subScope->getName()] = ['id' => $subScope->getId(), 'name' => $subScope->getName(), 'description' => $subScope->getDescription()];
                 }
             }
         }
@@ -105,15 +99,24 @@ class Scope extends Generated\UserScopeTable
      */
     private function getScopesForUser(int $userId): array
     {
-        $sql = '    SELECT scope.id,
-                           scope.name,
-                           scope.description
-                      FROM fusio_user_scope user_scope
-                INNER JOIN fusio_scope scope
-                        ON scope.id = user_scope.scope_id
-                     WHERE user_scope.user_id = :user_id
-                  ORDER BY scope.id ASC';
-        return $this->connection->fetchAllAssociative($sql, ['user_id' => $userId]);
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_USER_ID, $userId);
+
+        $scopeIds = [];
+        foreach ($this->findAll($condition) as $link) {
+            $scopeIds[] = $link->getScopeId();
+        }
+        if (empty($scopeIds)) {
+            return [];
+        }
+
+        $result = [];
+        $condition = Condition::withAnd();
+        $condition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
+        foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($condition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+            $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
+        }
+        return $result;
     }
 
     /**
@@ -121,19 +124,28 @@ class Scope extends Generated\UserScopeTable
      */
     private function getScopesForPlan(int $userId): array
     {
-        $planId = (int) $this->connection->fetchOne('SELECT plan_id FROM fusio_user WHERE id = :user_id', ['user_id' => $userId]);
+        $user = $this->getTable(\Fusio\Impl\Table\User::class)->find($userId);
+        $planId = (int) ($user !== null ? ($user->getPlanId() ?? 0) : 0);
         if (empty($planId)) {
             return [];
         }
 
-        $sql = '    SELECT scope.id,
-                           scope.name,
-                           scope.description
-                      FROM fusio_plan_scope plan_scope
-                INNER JOIN fusio_scope scope
-                        ON scope.id = plan_scope.scope_id
-                     WHERE plan_scope.plan_id = :plan_id
-                  ORDER BY scope.id ASC';
-        return $this->connection->fetchAllAssociative($sql, ['plan_id' => $planId]);
+        $scopeIds = [];
+        $condition = Condition::withAnd();
+        $condition->equals(Generated\PlanScopeTable::COLUMN_PLAN_ID, $planId);
+        foreach ($this->getTable(\Fusio\Impl\Table\Plan\Scope::class)->findAll($condition) as $link) {
+            $scopeIds[] = $link->getScopeId();
+        }
+        if (empty($scopeIds)) {
+            return [];
+        }
+
+        $result = [];
+        $condition = Condition::withAnd();
+        $condition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
+        foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($condition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+            $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
+        }
+        return $result;
     }
 }

@@ -63,24 +63,14 @@ class Token extends Generated\TokenTable
         $condition->equals(self::COLUMN_TOKEN, $token);
         $condition->add(Condition::withOr()
             ->nil(self::COLUMN_EXPIRE)
-            ->greater(self::COLUMN_EXPIRE, $now->format($this->connection->getDatabasePlatform()->getDateTimeFormatString()))
+            ->greater(self::COLUMN_EXPIRE, $now)
         );
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'token.' . self::COLUMN_ID,
-                'token.' . self::COLUMN_APP_ID,
-                'token.' . self::COLUMN_USER_ID,
-                'token.' . self::COLUMN_TOKEN,
-                'token.' . self::COLUMN_SCOPE,
-                'token.' . self::COLUMN_EXPIRE,
-                'token.' . self::COLUMN_DATE,
-            ])
-            ->from('fusio_token', 'token')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        return $this->connection->fetchAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $row = $this->findOneBy($condition);
+        if ($row === null) {
+            return false;
+        }
+        return $row->toRecord()->getAll();
     }
 
     /**
@@ -123,13 +113,7 @@ class Token extends Generated\TokenTable
         $condition->equals(self::COLUMN_TENANT_ID, $tenantId);
         $condition->equals(self::COLUMN_ID, $tokenId);
 
-        $queryBuilder = $this->connection->createQueryBuilder();
-        $queryBuilder->update('fusio_token');
-        $queryBuilder->set(self::COLUMN_STATUS, '?');
-        $queryBuilder->where($condition->getExpression($this->connection->getDatabasePlatform()));
-        $queryBuilder->setParameters(array_merge([self::STATUS_DELETED], $condition->getValues()));
-
-        $affectedRows = $this->connection->executeStatement($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $affectedRows = $this->doUpdateBy($condition, new \PSX\Record\Record([self::COLUMN_STATUS => self::STATUS_DELETED]));
 
         if ($affectedRows == 0) {
             throw new StatusCode\NotFoundException('Invalid token');
@@ -143,13 +127,7 @@ class Token extends Generated\TokenTable
         $condition->equals(self::COLUMN_APP_ID, $appId);
         $condition->equals(self::COLUMN_USER_ID, $userId);
 
-        $queryBuilder = $this->connection->createQueryBuilder();
-        $queryBuilder->update('fusio_token');
-        $queryBuilder->set(self::COLUMN_STATUS, '?');
-        $queryBuilder->where($condition->getExpression($this->connection->getDatabasePlatform()));
-        $queryBuilder->setParameters(array_merge([self::STATUS_DELETED], $condition->getValues()));
-
-        $this->connection->executeStatement($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $this->doUpdateBy($condition, new \PSX\Record\Record([self::COLUMN_STATUS => self::STATUS_DELETED]));
     }
 
     public function getCountForUser(?string $tenantId, int $categoryId, int $userId): int

@@ -40,7 +40,7 @@ class IncomingTransactions extends ChartViewAbstract
         $condition  = $filter->getCondition($this->getTable(Table\Transaction::class), [QueryFilter::COLUMN_SEARCH => Table\Generated\TransactionColumn::TRANSACTION_ID], 'trans');
         $condition->equals('trans.' . Table\Generated\TransactionTable::COLUMN_TENANT_ID, $context->getTenantId());
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = ($this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '');
 
         // build data structure
         $fromDate = $filter->getFrom();
@@ -55,6 +55,28 @@ class IncomingTransactions extends ChartViewAbstract
 
             $fromDate = $fromDate->add(new \DateInterval('P1D'));
         }
+
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+
+
+            $counts = $this->storage->groupByDay('fusio_transaction', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'insert_date', 'sum', 'amount');
+
+
+            foreach ($counts as $d => $v) {
+
+
+                if (isset($data[$d])) { $data[$d] = (float) $v; }
+
+
+            }
+
+
+            return $this->build([$data], ['Amount'], $labels);
+
+
+        }
+
+
 
         // fill values
         $sql = '  SELECT SUM(trans.amount) AS amount,

@@ -36,15 +36,16 @@ class Commit extends Generated\ActionCommitTable
      */
     public function findCurrentHash(int $actionId): array
     {
-        $row = $this->connection->fetchAssociative('SELECT commit_hash, config_hash FROM fusio_action_commit WHERE action_id = :action_id ORDER BY id DESC', [
-            'action_id' => $actionId,
-        ]);
+        $condition = \PSX\Sql\Condition::withAnd();
+        $condition->equals(self::COLUMN_ACTION_ID, $actionId);
+        $rows = $this->findAll($condition, 0, 1, Generated\ActionCommitColumn::ID, \PSX\Sql\OrderBy::DESC);
+        $row = $rows[0] ?? null;
 
-        if (empty($row)) {
+        if ($row === null) {
             return [null, null];
         }
 
-        return [$row['commit_hash'], $row['config_hash']];
+        return [$row->getCommitHash(), $row->getConfigHash()];
     }
 
     /**
@@ -52,15 +53,12 @@ class Commit extends Generated\ActionCommitTable
      */
     public function findAllLatestCommitIds(): array
     {
-        $query = 'WITH latest_commits AS (
-                       SELECT id,
-                              ROW_NUMBER() OVER (PARTITION BY action_id ORDER BY insert_date DESC, id DESC) as rn
-                         FROM fusio_action_commit
-                       )
-                SELECT id
-                  FROM latest_commits
-                 WHERE rn = 1';
-
-        return $this->connection->fetchFirstColumn($query);
+        // one latest commit per action — iterate in id order, last write wins
+        $latest = [];
+        $condition = \PSX\Sql\Condition::withAnd();
+        foreach ($this->findAll($condition, 0, 0, Generated\ActionCommitColumn::ID, \PSX\Sql\OrderBy::ASC) as $row) {
+            $latest[$row->getActionId()] = $row->getId();
+        }
+        return array_values($latest);
     }
 }

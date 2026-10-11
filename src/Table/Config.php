@@ -82,16 +82,10 @@ class Config extends Generated\ConfigTable
         $condition->equals(self::COLUMN_TENANT_ID, $tenantId);
         $condition->equals(self::COLUMN_NAME, $name);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'config.' . self::COLUMN_ID,
-                'config.' . self::COLUMN_VALUE,
-                'config.' . self::COLUMN_TYPE,
-            ])
-            ->from('fusio_config', 'config')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        return $this->connection->fetchAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $row = $this->findOneBy($condition);
+        if ($row === null) {
+            return false;
+        }
+        return ['id' => $row->getId(), 'value' => $row->getValue(), 'type' => $row->getType()];
     }
 }

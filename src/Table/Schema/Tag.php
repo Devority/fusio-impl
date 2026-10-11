@@ -21,6 +21,7 @@
 namespace Fusio\Impl\Table\Schema;
 
 use Fusio\Impl\Table\Generated;
+use PSX\Sql\Condition;
 
 /**
  * Tag
@@ -33,16 +34,14 @@ class Tag extends Generated\SchemaTagTable
 {
     public function findHashByVersion(string $version, int $schemaId): ?string
     {
-        $query = 'SELECT cmt.commit_hash
-                    FROM fusio_schema_tag tag
-              INNER JOIN fusio_schema_commit cmt
-                      ON tag.commit_id = cmt.id
-                   WHERE tag.version = :version
-                     AND cmt.schema_id = :schema_id';
-
-        return $this->connection->fetchOne($query, [
-            'version' => $version,
-            'schema_id' => $schemaId
-        ]);
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_VERSION, $version);
+        foreach ($this->findAll($condition) as $tag) {
+            $commit = $this->getTable(\Fusio\Impl\Table\Schema\Commit::class)->find($tag->getCommitId());
+            if ($commit !== null && $commit->getSchemaId() === $schemaId) {
+                return $commit->getCommitHash();
+            }
+        }
+        return null;
     }
 }

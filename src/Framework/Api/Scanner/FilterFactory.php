@@ -38,14 +38,16 @@ class FilterFactory extends PSXFilterFactory
 {
     private Connection $connection;
     private FrameworkConfig $frameworkConfig;
+    private Table\Category $categoryTable;
     private bool $loaded = false;
 
-    public function __construct(Connection $connection, FrameworkConfig $frameworkConfig)
+    public function __construct(Connection $connection, FrameworkConfig $frameworkConfig, Table\Category $categoryTable)
     {
         parent::__construct();
 
         $this->connection = $connection;
         $this->frameworkConfig = $frameworkConfig;
+        $this->categoryTable = $categoryTable;
     }
 
     public function getFilter(string $name): ?FilterInterface
@@ -69,19 +71,10 @@ class FilterFactory extends PSXFilterFactory
         $condition = Condition::withAnd();
         $condition->equals(Table\Generated\CategoryTable::COLUMN_TENANT_ID, $this->frameworkConfig->getTenantId());
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                Table\Generated\CategoryTable::COLUMN_ID,
-                Table\Generated\CategoryTable::COLUMN_NAME,
-            ])
-            ->from('fusio_category', 'category')
-            ->orderBy(Table\Generated\CategoryTable::COLUMN_ID, 'ASC')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
         $first = null;
-        $result = $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $result = $this->categoryTable->findAll($condition, 0, 0, Table\Generated\CategoryColumn::ID, \PSX\Sql\OrderBy::ASC);
         foreach ($result as $row) {
+            $row = $row->toRecord()->getAll();
             if ($first === null) {
                 $first = $row[Table\Generated\CategoryTable::COLUMN_NAME];
             }

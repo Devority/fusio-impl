@@ -95,15 +95,8 @@ class App extends Generated\AppTable
         $condition->equals(self::COLUMN_TENANT_ID, $tenantId);
         $condition->equals(self::COLUMN_ID, $appId);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'app.' . self::COLUMN_USER_ID,
-            ])
-            ->from('fusio_app', 'app')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        return (int) $this->connection->fetchOne($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $row = $this->findOneBy($condition);
+        return $row !== null ? $row->getUserId() : 0;
     }
 
     public function getCountForUser(?string $tenantId, int $userId): int

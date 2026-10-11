@@ -35,10 +35,9 @@ class Scope extends Generated\AppScopeTable
 {
     public function deleteAllFromApp(int $appId): void
     {
-        $sql = 'DELETE FROM fusio_app_scope
-                      WHERE app_id = :app_id';
-
-        $this->connection->executeQuery($sql, ['app_id' => $appId]);
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_APP_ID, $appId);
+        $this->doDeleteBy($condition);
     }
 
     /**
@@ -97,19 +96,25 @@ class Scope extends Generated\AppScopeTable
         $condition->equals(Generated\ScopeTable::COLUMN_STATUS, Table\Scope::STATUS_ACTIVE);
         $condition->equals(self::COLUMN_APP_ID, $appId);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'scope.' . Generated\ScopeTable::COLUMN_ID,
-                'scope.' . Generated\ScopeTable::COLUMN_NAME,
-                'scope.' . Generated\ScopeTable::COLUMN_DESCRIPTION,
-            ])
-            ->from('fusio_app_scope', 'app_scope')
-            ->innerJoin('app_scope', 'fusio_scope', 'scope', 'scope.' . Generated\ScopeTable::COLUMN_ID . ' = app_scope.' . self::COLUMN_SCOPE_ID)
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->orderBy('scope.' . Generated\ScopeTable::COLUMN_ID, 'ASC')
-            ->setParameters($condition->getValues());
+        $scopeIds = [];
+        $linkCondition = Condition::withAnd();
+        $linkCondition->equals(self::COLUMN_APP_ID, $appId);
+        foreach ($this->findAll($linkCondition) as $link) {
+            $scopeIds[] = $link->getScopeId();
+        }
+        if (empty($scopeIds)) {
+            return [];
+        }
 
-        return $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $result = [];
+        $scopeCondition = Condition::withAnd();
+        $scopeCondition->equals(Generated\ScopeTable::COLUMN_TENANT_ID, $tenantId);
+        $scopeCondition->equals(Generated\ScopeTable::COLUMN_STATUS, Table\Scope::STATUS_ACTIVE);
+        $scopeCondition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
+        foreach ($this->getTable(Table\Scope::class)->findAll($scopeCondition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+            $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
+        }
+        return $result;
     }
 
     /**
@@ -132,18 +137,24 @@ class Scope extends Generated\AppScopeTable
         $condition->equals(Generated\ScopeTable::COLUMN_STATUS, Table\Scope::STATUS_ACTIVE);
         $condition->equals(Generated\PlanScopeTable::COLUMN_PLAN_ID, $planId);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'scope.' . Generated\ScopeTable::COLUMN_ID,
-                'scope.' . Generated\ScopeTable::COLUMN_NAME,
-                'scope.' . Generated\ScopeTable::COLUMN_DESCRIPTION,
-            ])
-            ->from('fusio_plan_scope', 'plan_scope')
-            ->innerJoin('plan_scope', 'fusio_scope', 'scope', 'scope.' . Generated\ScopeTable::COLUMN_ID . ' = plan_scope.' . Generated\PlanScopeTable::COLUMN_SCOPE_ID)
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->orderBy('scope.' . Generated\ScopeTable::COLUMN_ID, 'ASC')
-            ->setParameters($condition->getValues());
+        $scopeIds = [];
+        $linkCondition = Condition::withAnd();
+        $linkCondition->equals(Generated\PlanScopeTable::COLUMN_PLAN_ID, $planId);
+        foreach ($this->getTable(Table\Plan\Scope::class)->findAll($linkCondition) as $link) {
+            $scopeIds[] = $link->getScopeId();
+        }
+        if (empty($scopeIds)) {
+            return [];
+        }
 
-        return $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $result = [];
+        $scopeCondition = Condition::withAnd();
+        $scopeCondition->equals(Generated\ScopeTable::COLUMN_TENANT_ID, $tenantId);
+        $scopeCondition->equals(Generated\ScopeTable::COLUMN_STATUS, Table\Scope::STATUS_ACTIVE);
+        $scopeCondition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
+        foreach ($this->getTable(Table\Scope::class)->findAll($scopeCondition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+            $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
+        }
+        return $result;
     }
 }

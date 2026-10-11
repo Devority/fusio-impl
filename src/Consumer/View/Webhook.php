@@ -55,6 +55,40 @@ class Webhook extends ViewAbstract
             $condition->like('webhook.' . Table\Generated\WebhookTable::COLUMN_NAME, '%' . $search . '%');
         }
 
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            $webhookFilter = \PSX\Sql\MongoDB\ConditionTranslator::translateForAlias($condition, 'webhook');
+            $eventFilter = \PSX\Sql\MongoDB\ConditionTranslator::translateForAlias($condition, 'event', true) ?? [];
+            $pipeline = [
+                ['$match' => $webhookFilter],
+                ['$lookup' => ['from' => 'fusio_event', 'localField' => 'event_id', 'foreignField' => 'id', 'as' => 'event']],
+                ['$unwind' => '$event'],
+            ];
+            if (!empty($eventFilter)) {
+                $pipeline[] = ['$match' => $eventFilter];
+            }
+            $total = $this->storage->aggregate('fusio_webhook', [...$pipeline, ['$count' => 'cnt']]);
+            $rows = $this->storage->aggregate('fusio_webhook', [...$pipeline, ['$sort' => ['id' => -1]], ['$skip' => $startIndex], ['$limit' => $count]]);
+            $entries = [];
+            foreach ($rows as $row) {
+                $event = $row['event'] ?? [];
+                $entries[] = [
+                    'kind' => \Fusio\Impl\Service\TypeSystem\KindBuilder::build(Model\Consumer\Webhook::class),
+                    'id' => (int) ($row['id'] ?? 0),
+                    'status' => (int) ($row['status'] ?? 0),
+                    'name' => $row['name'] ?? null,
+                    'event' => $event['name'] ?? null,
+                    'endpoint' => $row['endpoint'] ?? null,
+                ];
+            }
+            return [
+                'kind' => \Fusio\Impl\Service\TypeSystem\KindBuilder::build(Model\Consumer\WebhookCollection::class),
+                'totalResults' => (int) ($total[0]['cnt'] ?? 0),
+                'startIndex' => $startIndex,
+                'itemsPerPage' => $count,
+                'entry' => $entries,
+            ];
+        }
+
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select([
                 'webhook.' . Table\Generated\WebhookTable::COLUMN_ID,
@@ -105,6 +139,30 @@ class Webhook extends ViewAbstract
         $condition->equals('webhook.' . Table\Generated\WebhookTable::COLUMN_USER_ID, $context->getUser()->getId());
         $condition->equals('event.' . Table\Generated\EventTable::COLUMN_TENANT_ID, $context->getTenantId());
         $condition->equals('event.' . Table\Generated\EventTable::COLUMN_CATEGORY_ID, $context->getUser()->getCategoryId());
+
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            $pipeline = [
+                ['$match' => \PSX\Sql\MongoDB\ConditionTranslator::translateForAlias($condition, 'webhook')],
+                ['$lookup' => ['from' => 'fusio_event', 'localField' => 'event_id', 'foreignField' => 'id', 'as' => 'event']],
+                ['$unwind' => '$event'],
+                ['$match' => \PSX\Sql\MongoDB\ConditionTranslator::translateForAlias($condition, 'event', true) ?? []],
+                ['$limit' => 1],
+            ];
+            $rows = $this->storage->aggregate('fusio_webhook', $pipeline);
+            $row = $rows[0] ?? null;
+            if ($row === null) {
+                return null;
+            }
+            $event = $row['event'] ?? [];
+            return [
+                'kind' => \Fusio\Impl\Service\TypeSystem\KindBuilder::build(Model\Consumer\Webhook::class),
+                'id' => (int) ($row['id'] ?? 0),
+                'status' => (int) ($row['status'] ?? 0),
+                'name' => $row['name'] ?? null,
+                'event' => $event['name'] ?? null,
+                'endpoint' => $row['endpoint'] ?? null,
+            ];
+        }
 
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select([

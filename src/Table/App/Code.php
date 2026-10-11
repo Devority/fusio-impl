@@ -46,19 +46,25 @@ class Code extends Generated\AppCodeTable
         $condition->equals('app_code.' . self::COLUMN_CODE, $code);
         $condition->equals('app_code.' . self::COLUMN_REDIRECT_URI, $redirectUri ?: '');
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'app_code.' . self::COLUMN_ID,
-                'app_code.' . self::COLUMN_APP_ID,
-                'app_code.' . self::COLUMN_USER_ID,
-                'app_code.' . self::COLUMN_SCOPE,
-                'app_code.' . self::COLUMN_DATE,
-            ])
-            ->from('fusio_app_code', 'app_code')
-            ->innerJoin('app_code', 'fusio_app', 'app', 'app_code.' . self::COLUMN_APP_ID . ' = app.' . Generated\AppTable::COLUMN_ID)
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
+        // split: app identity + app_code lookup
+        $appCondition = Condition::withAnd();
+        $appCondition->equals(Generated\AppTable::COLUMN_TENANT_ID, $tenantId);
+        $appCondition->equals(Generated\AppTable::COLUMN_STATUS, App::STATUS_ACTIVE);
+        $appCondition->equals(Generated\AppTable::COLUMN_APP_KEY, $appKey);
+        $appCondition->equals(Generated\AppTable::COLUMN_APP_SECRET, $appSecret);
+        $app = $this->getTable(\Fusio\Impl\Table\App::class)->findOneBy($appCondition);
+        if ($app === null) {
+            return false;
+        }
 
-        return $this->connection->fetchAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $codeCondition = Condition::withAnd();
+        $codeCondition->equals(self::COLUMN_APP_ID, $app->getId());
+        $codeCondition->equals(self::COLUMN_CODE, $code);
+        $codeCondition->equals(self::COLUMN_REDIRECT_URI, $redirectUri ?: '');
+        $row = $this->findOneBy($codeCondition);
+        if ($row === null) {
+            return false;
+        }
+        return ['id' => $row->getId(), 'app_id' => $row->getAppId(), 'user_id' => $row->getUserId(), 'scope' => $row->getScope(), 'date' => $row->getDate()];
     }
 }

@@ -41,7 +41,7 @@ class RequestsPerIP extends ChartViewAbstract
         $condition->equals('log.' . Table\Generated\LogTable::COLUMN_TENANT_ID, $context->getTenantId());
         $condition->equals('log.' . Table\Generated\LogTable::COLUMN_CATEGORY_ID, $context->getUser()->getCategoryId());
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         // build data structure
         $sql = '    SELECT log.ip
@@ -50,9 +50,16 @@ class RequestsPerIP extends ChartViewAbstract
                   GROUP BY log.ip
                   ORDER BY COUNT(log.id) DESC, log.ip ASC';
 
-        $sql = $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6);
+        $sql = $this->connection !== null ? $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6) : $sql;
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            $result = [];
+            foreach ($this->storage->topGroups('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'ip', null, 'ip', 6) as $g) {
+                $result[] = ['ip' => $g['id']];
+            }
+        } else {
+            $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        }
         $ips = [];
         $data = [];
         $series = [];
@@ -77,7 +84,7 @@ class RequestsPerIP extends ChartViewAbstract
         }
 
         // fill data with values
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         $sql = '    SELECT COUNT(log.id) AS cnt,
                            log.ip,
@@ -86,7 +93,14 @@ class RequestsPerIP extends ChartViewAbstract
                      WHERE ' . $expression . '
                   GROUP BY DATE(log.date), log.ip';
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            $result = [];
+            foreach ($this->storage->groupByDayAndKeyFlat('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'ip') as [$k, $d, $v]) {
+                $result[] = ['ip' => $k, 'date' => $d, 'cnt' => $v];
+            }
+        } else {
+            $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        }
 
         foreach ($result as $row) {
             if (isset($data[$row['ip']][$row['date']])) {

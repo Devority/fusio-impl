@@ -41,7 +41,7 @@ class IncomingRequests extends ChartViewAbstract
         $condition->equals('log.' . Table\Generated\LogTable::COLUMN_TENANT_ID, $context->getTenantId());
         $condition->equals('log.' . Table\Generated\LogTable::COLUMN_CATEGORY_ID, $context->getUser()->getCategoryId());
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = ($this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '');
 
         // build data structure
         $fromDate = $filter->getFrom();
@@ -56,6 +56,28 @@ class IncomingRequests extends ChartViewAbstract
 
             $fromDate = $fromDate->add(new \DateInterval('P1D'));
         }
+
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+
+
+            $counts = $this->storage->groupByDay('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'date', 'count', 'id');
+
+
+            foreach ($counts as $d => $v) {
+
+
+                if (isset($data[$d])) { $data[$d] = (int) $v; }
+
+
+            }
+
+
+            return $this->build([$data], ['Requests'], $labels);
+
+
+        }
+
+
 
         // fill values
         $sql = '  SELECT COUNT(log.id) AS cnt,

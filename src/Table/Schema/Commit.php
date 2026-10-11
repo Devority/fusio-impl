@@ -36,15 +36,16 @@ class Commit extends Generated\SchemaCommitTable
      */
     public function findCurrentHash(int $schemaId): array
     {
-        $row = $this->connection->fetchAssociative('SELECT commit_hash, source_hash FROM fusio_schema_commit WHERE schema_id = :schema_id ORDER BY id DESC', [
-            'schema_id' => $schemaId,
-        ]);
+        $condition = \PSX\Sql\Condition::withAnd();
+        $condition->equals(self::COLUMN_SCHEMA_ID, $schemaId);
+        $rows = $this->findAll($condition, 0, 1, Generated\SchemaCommitColumn::ID, \PSX\Sql\OrderBy::DESC);
+        $row = $rows[0] ?? null;
 
-        if (empty($row)) {
+        if ($row === null) {
             return [null, null];
         }
 
-        return [$row['commit_hash'], $row['source_hash']];
+        return [$row->getCommitHash(), $row->getSourceHash()];
     }
 
     /**
@@ -52,15 +53,10 @@ class Commit extends Generated\SchemaCommitTable
      */
     public function findAllLatestCommitIds(): array
     {
-        $query = 'WITH latest_commits AS (
-                       SELECT id,
-                              ROW_NUMBER() OVER (PARTITION BY schema_id ORDER BY insert_date DESC, id DESC) as rn
-                         FROM fusio_schema_commit
-                       )
-                SELECT id
-                  FROM latest_commits
-                 WHERE rn = 1;';
-
-        return $this->connection->fetchFirstColumn($query);
+        $latest = [];
+        foreach ($this->findAll(null, 0, 0, Generated\SchemaCommitColumn::ID, \PSX\Sql\OrderBy::ASC) as $row) {
+            $latest[$row->getSchemaId()] = $row->getId();
+        }
+        return array_values($latest);
     }
 }

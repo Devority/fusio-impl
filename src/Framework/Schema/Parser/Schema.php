@@ -46,12 +46,17 @@ class Schema implements ParserInterface
     private TypeSchema $typeSchema;
     private FrameworkConfig $frameworkConfig;
 
-    public function __construct(Connection $connection, SchemaManagerInterface $schemaManager, FrameworkConfig $frameworkConfig)
+    private Table\Schema $schemaTable;
+    private Table\Schema\Commit $schemaCommitTable;
+
+    public function __construct(Connection $connection, SchemaManagerInterface $schemaManager, FrameworkConfig $frameworkConfig, Table\Schema $schemaTable, Table\Schema\Commit $schemaCommitTable)
     {
         $this->connection = $connection;
         $this->popo = new Popo();
         $this->typeSchema = new TypeSchema($schemaManager);
         $this->frameworkConfig = $frameworkConfig;
+        $this->schemaTable = $schemaTable;
+        $this->schemaCommitTable = $schemaCommitTable;
     }
 
     public function parse(string $schema, ?ContextInterface $context = null): SchemaInterface
@@ -71,16 +76,8 @@ class Schema implements ParserInterface
             $condition->equals('sm.' . Table\Generated\SchemaTable::COLUMN_NAME, ltrim($schema, '/'));
         }
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'sm.' . Table\Generated\SchemaTable::COLUMN_ID,
-                'sm.' . Table\Generated\SchemaTable::COLUMN_SOURCE,
-            ])
-            ->from('fusio_schema', 'sm')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        $row = $this->connection->fetchAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $schemaRow = $this->schemaTable->findOneBy($condition);
+        $row = $schemaRow !== null ? $schemaRow->toRecord()->getAll() : null;
         if (empty($row)) {
             throw new ParserException('Could not find schema ' . $schema);
         }
@@ -103,16 +100,7 @@ class Schema implements ParserInterface
         $condition->equals(Table\Generated\SchemaCommitTable::COLUMN_SCHEMA_ID, $schemaId);
         $condition->equals(Table\Generated\SchemaCommitTable::COLUMN_COMMIT_HASH, $hash);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                Table\Generated\SchemaCommitTable::COLUMN_SOURCE,
-            ])
-            ->from('fusio_schema_commit', 'schema_commit')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        $config = $this->connection->fetchOne($queryBuilder->getSQL(), $queryBuilder->getParameters());
-
-        return !empty($config) ? $config : null;
+        $commit = $this->schemaCommitTable->findOneBy($condition);
+        return $commit !== null ? $commit->getSource() : null;
     }
 }

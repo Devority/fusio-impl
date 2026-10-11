@@ -52,9 +52,13 @@ class TestCoverage extends ChartViewAbstract
             $condition->equals(Table\Test::COLUMN_CATEGORY_ID, $context->getUser()->getCategoryId());
             $condition->equals(Table\Test::COLUMN_STATUS, $key);
 
-            $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+            $expression = ($this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '');
 
-            $count = (int) $this->connection->fetchOne('SELECT COUNT(*) AS cnt FROM fusio_test WHERE ' . $expression, $condition->getValues());
+            if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+                $count = $this->storage->rawCount('fusio_test', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition));
+            } else {
+                $count = (int) $this->connection->fetchOne('SELECT COUNT(*) AS cnt FROM fusio_test WHERE ' . $expression, $condition->getValues());
+            }
 
             $data[] = $count;
             $labels[] = $label;

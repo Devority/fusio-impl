@@ -42,7 +42,7 @@ class MostUsedApps extends ChartViewAbstract
         $condition->equals('log.' . Table\Generated\LogTable::COLUMN_CATEGORY_ID, $context->getUser()->getCategoryId());
         $condition->notNil('log.' . Table\Generated\LogTable::COLUMN_APP_ID);
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         // get the most used apps and build data structure
         $sql = '  SELECT log.app_id,
@@ -54,9 +54,11 @@ class MostUsedApps extends ChartViewAbstract
                 GROUP BY log.app_id, app.name
                 ORDER BY COUNT(log.app_id) DESC';
 
-        $sql = $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6);
+        $sql = $this->connection !== null ? $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6) : $sql;
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        $result = $this->storage instanceof \PSX\Sql\MongoDB\MongoStorage
+            ? array_map(fn($g) => ['app_id' => $g['id'], 'name' => $g['name']], $this->storage->topGroups('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'app_id', 'fusio_app', 'name', 6))
+            : $this->connection->fetchAllAssociative($sql, $condition->getValues());
         $appIds = array();
         $data   = [];
         $series = [];
@@ -81,7 +83,7 @@ class MostUsedApps extends ChartViewAbstract
         }
 
         // fill data with values
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         $sql = '    SELECT COUNT(log.id) AS cnt,
                            log.app_id,
@@ -90,7 +92,9 @@ class MostUsedApps extends ChartViewAbstract
                      WHERE ' . $expression . '
                   GROUP BY DATE(log.date), log.app_id';
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        $result = $this->storage instanceof \PSX\Sql\MongoDB\MongoStorage
+            ? array_map(fn($r) => ['app_id' => $r[0], 'date' => $r[1], 'cnt' => $r[2]], $this->storage->groupByDayAndKeyFlat('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'app_id', 'date', 'count', 'id'))
+            : $this->connection->fetchAllAssociative($sql, $condition->getValues());
 
         foreach ($result as $row) {
             if (isset($data[$row['app_id']][$row['date']])) {

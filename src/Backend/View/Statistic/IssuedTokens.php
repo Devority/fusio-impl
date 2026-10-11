@@ -40,7 +40,7 @@ class IssuedTokens extends ChartViewAbstract
         $condition = $filter->getCondition($this->getTable(Table\Token::class), [QueryFilter::COLUMN_SEARCH => Table\Generated\TokenColumn::NAME], 'token');
         $condition->equals('usr.tenant_id', $context->getTenantId());
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = ($this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '');
 
         // build data structure
         $fromDate = $filter->getFrom();
@@ -55,6 +55,28 @@ class IssuedTokens extends ChartViewAbstract
 
             $fromDate = $fromDate->add(new \DateInterval('P1D'));
         }
+
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+
+
+            $counts = $this->storage->groupByDay('fusio_token', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'date', 'count', 'id');
+
+
+            foreach ($counts as $d => $v) {
+
+
+                if (isset($data[$d])) { $data[$d] = (int) $v; }
+
+
+            }
+
+
+            return $this->build([$data], ['Tokens'], $labels);
+
+
+        }
+
+
 
         // fill values
         $sql = '  SELECT COUNT(token.id) AS cnt,

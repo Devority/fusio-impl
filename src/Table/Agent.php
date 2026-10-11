@@ -94,10 +94,8 @@ class Agent extends Generated\AgentTable
      */
     public function replaceDefaultConnection(int $connectionId): void
     {
-        $this->connection->update(self::NAME, [
-            self::COLUMN_CONNECTION_ID => $connectionId
-        ], [
-            self::COLUMN_CONNECTION_ID => null
-        ]);
+        $condition = Condition::withAnd();
+        $condition->nil(self::COLUMN_CONNECTION_ID);
+        $this->doUpdateBy($condition, new \PSX\Record\Record([self::COLUMN_CONNECTION_ID => $connectionId]));
     }
 }

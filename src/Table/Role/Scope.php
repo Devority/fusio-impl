@@ -33,10 +33,9 @@ class Scope extends Generated\RoleScopeTable
 {
     public function deleteAllFromRole(int $roleId): void
     {
-        $sql = 'DELETE FROM fusio_role_scope
-                      WHERE role_id = :id';
-
-        $this->connection->executeQuery($sql, ['id' => $roleId]);
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_ROLE_ID, $roleId);
+        $this->doDeleteBy($condition);
     }
 
     /**
@@ -62,15 +61,21 @@ class Scope extends Generated\RoleScopeTable
      */
     public function getAvailableScopes(int $roleId): array
     {
-        $sql = '    SELECT scope.id,
-                           scope.name,
-                           scope.description
-                      FROM fusio_role_scope role_scope
-                INNER JOIN fusio_scope scope
-                        ON scope.id = role_scope.scope_id
-                     WHERE role_scope.role_id = :role_id
-                  ORDER BY scope.id ASC';
-        $assignedScopes = $this->connection->fetchAllAssociative($sql, ['role_id' => $roleId]);
+        $scopeIds = [];
+        $linkCondition = Condition::withAnd();
+        $linkCondition->equals(self::COLUMN_ROLE_ID, $roleId);
+        foreach ($this->findAll($linkCondition) as $link) {
+            $scopeIds[] = $link->getScopeId();
+        }
+
+        $assignedScopes = [];
+        if (!empty($scopeIds)) {
+            $scopeCondition = Condition::withAnd();
+            $scopeCondition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
+            foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($scopeCondition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+                $assignedScopes[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
+            }
+        }
 
         $scopes = [];
         foreach ($assignedScopes as $assignedScope) {
@@ -78,15 +83,10 @@ class Scope extends Generated\RoleScopeTable
 
             if (!str_contains((string) $assignedScope['name'], '.')) {
                 // load all sub scopes
-                $sql = 'SELECT scope.id,
-                               scope.name,
-                               scope.description
-                          FROM fusio_scope scope
-                         WHERE scope.name LIKE :name
-                      ORDER BY scope.name ASC';
-                $subScopes = $this->connection->fetchAllAssociative($sql, ['name' => $assignedScope['name'] . '.%']);
-                foreach ($subScopes as $subScope) {
-                    $scopes[$subScope['name']] = $subScope;
+                $subCondition = Condition::withAnd();
+                $subCondition->like(Generated\ScopeTable::COLUMN_NAME, $assignedScope['name'] . '.%');
+                foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($subCondition, 0, 0, Generated\ScopeColumn::NAME, \PSX\Sql\OrderBy::ASC) as $subScope) {
+                    $scopes[$subScope->getName()] = ['id' => $subScope->getId(), 'name' => $subScope->getName(), 'description' => $subScope->getDescription()];
                 }
             }
         }

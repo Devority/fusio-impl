@@ -76,22 +76,24 @@ class Scope extends Generated\ScopeTable
      */
     public function findByOperationId(?string $tenantId, int $operationId): array
     {
-        $condition = Condition::withAnd();
-        $condition->equals(self::COLUMN_TENANT_ID, $tenantId);
-        $condition->equals(self::COLUMN_STATUS, self::STATUS_ACTIVE);
-        $condition->equals(Generated\ScopeOperationTable::COLUMN_OPERATION_ID, $operationId);
+        // scope ids for operation, then resolve names + allow flags
+        $linkCondition = Condition::withAnd();
+        $linkCondition->equals(Generated\ScopeOperationTable::COLUMN_OPERATION_ID, $operationId);
+        $links = $this->getTable(Scope\Operation::class)->findAll($linkCondition);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'scope.' . self::COLUMN_NAME,
-                'scope_operation.' . Generated\ScopeOperationTable::COLUMN_ALLOW,
-            ])
-            ->from('fusio_scope_operation', 'scope_operation')
-            ->innerJoin('scope_operation', 'fusio_scope', 'scope', 'scope_operation.' . Generated\ScopeOperationTable::COLUMN_SCOPE_ID . ' = scope.' . self::COLUMN_ID)
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        return $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $result = [];
+        $scopeCondition = Condition::withAnd();
+        $scopeCondition->equals(self::COLUMN_TENANT_ID, $tenantId);
+        $scopeCondition->equals(self::COLUMN_STATUS, self::STATUS_ACTIVE);
+        foreach ($links as $link) {
+            $scoped = clone $scopeCondition;
+            $scoped->equals(self::COLUMN_ID, $link->getScopeId());
+            $scope = $this->findOneBy($scoped);
+            if ($scope !== null) {
+                $result[] = ['name' => $scope->getName(), 'allow' => $link->getAllow()];
+            }
+        }
+        return $result;
     }
 
     /**
@@ -104,18 +106,11 @@ class Scope extends Generated\ScopeTable
         $condition->equals(self::COLUMN_STATUS, self::STATUS_ACTIVE);
         $condition->like(self::COLUMN_NAME, $scope . '.%');
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'scope.' . self::COLUMN_ID,
-                'scope.' . self::COLUMN_NAME,
-                'scope.' . self::COLUMN_DESCRIPTION,
-            ])
-            ->from('fusio_scope', 'scope')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->orderBy('scope.' . self::COLUMN_NAME, 'ASC')
-            ->setParameters($condition->getValues());
-
-        return $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $result = [];
+        foreach ($this->findAll($condition, 0, 0, Generated\ScopeColumn::NAME, \PSX\Sql\OrderBy::ASC) as $scope) {
+            $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
+        }
+        return $result;
     }
 
     /**

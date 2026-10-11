@@ -43,7 +43,7 @@ class TimePerOperation extends ChartViewAbstract
         $condition->notNil('log.' . Table\Generated\LogTable::COLUMN_OPERATION_ID);
         $condition->notNil('log.' . Table\Generated\LogTable::COLUMN_EXECUTION_TIME);
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         // get the most slowest routes and build data structure
         $sql = '    SELECT log.operation_id,
@@ -55,9 +55,11 @@ class TimePerOperation extends ChartViewAbstract
                   GROUP BY log.operation_id, operation.name
                   ORDER BY SUM(log.execution_time) DESC';
 
-        $sql = $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6);
+        $sql = $this->connection !== null ? $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6) : $sql;
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        $result = $this->storage instanceof \PSX\Sql\MongoDB\MongoStorage
+            ? array_map(fn($g) => ['operation_id' => $g['id'], 'name' => $g['name']], $this->storage->topGroups('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'operation_id', 'fusio_operation', 'name', 6))
+            : $this->connection->fetchAllAssociative($sql, $condition->getValues());
         $operationIds = [];
         $data = [];
         $series = [];
@@ -84,7 +86,7 @@ class TimePerOperation extends ChartViewAbstract
         $condition->notNil('log.execution_time');
 
         // fill data with values
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         $sql = '    SELECT AVG(log.execution_time / 1000) AS exec_time,
                            log.operation_id,
@@ -93,7 +95,9 @@ class TimePerOperation extends ChartViewAbstract
                      WHERE ' . $expression . '
                   GROUP BY DATE(log.date), log.operation_id';
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        $result = $this->storage instanceof \PSX\Sql\MongoDB\MongoStorage
+            ? array_map(fn($r) => ['operation_id' => $r[0], 'date' => $r[1], 'cnt' => $r[2]], $this->storage->groupByDayAndKeyFlat('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'operation_id', 'date', 'avg', 'execution_time'))
+            : $this->connection->fetchAllAssociative($sql, $condition->getValues());
 
         foreach ($result as $row) {
             if (isset($data[$row['operation_id']][$row['date']])) {

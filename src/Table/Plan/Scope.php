@@ -35,10 +35,9 @@ class Scope extends Generated\PlanScopeTable
 {
     public function deleteAllFromPlan(int $planId): void
     {
-        $sql = 'DELETE FROM fusio_plan_scope
-                      WHERE plan_id = :id';
-
-        $this->connection->executeQuery($sql, ['id' => $planId]);
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_PLAN_ID, $planId);
+        $this->doDeleteBy($condition);
     }
 
     /**
@@ -50,18 +49,23 @@ class Scope extends Generated\PlanScopeTable
         $condition->equals(Generated\ScopeTable::COLUMN_TENANT_ID, $tenantId);
         $condition->equals(self::COLUMN_PLAN_ID, $planId);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'scope.' . Generated\ScopeTable::COLUMN_ID,
-                'scope.' . Generated\ScopeTable::COLUMN_NAME,
-                'scope.' . Generated\ScopeTable::COLUMN_DESCRIPTION,
-            ])
-            ->from('fusio_plan_scope', 'plan_scope')
-            ->innerJoin('plan_scope', 'fusio_scope', 'scope', 'plan_scope.' . self::COLUMN_SCOPE_ID . ' = scope.' . Generated\ScopeTable::COLUMN_ID)
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->orderBy('scope.' . self::COLUMN_ID, 'ASC')
-            ->setParameters($condition->getValues());
+        $scopeIds = [];
+        $linkCondition = Condition::withAnd();
+        $linkCondition->equals(self::COLUMN_PLAN_ID, $planId);
+        foreach ($this->findAll($linkCondition) as $link) {
+            $scopeIds[] = $link->getScopeId();
+        }
+        if (empty($scopeIds)) {
+            return [];
+        }
 
-        return $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $result = [];
+        $scopeCondition = Condition::withAnd();
+        $scopeCondition->equals(Generated\ScopeTable::COLUMN_TENANT_ID, $tenantId);
+        $scopeCondition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
+        foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($scopeCondition, 0, 0, Generated\ScopeColumn::ID, \PSX\Sql\OrderBy::ASC) as $scope) {
+            $result[] = ['id' => $scope->getId(), 'name' => $scope->getName(), 'description' => $scope->getDescription()];
+        }
+        return $result;
     }
 }

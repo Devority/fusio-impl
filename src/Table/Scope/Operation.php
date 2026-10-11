@@ -33,18 +33,16 @@ class Operation extends Generated\ScopeOperationTable
 {
     public function deleteAllFromScope(int $scopeId): void
     {
-        $sql = 'DELETE FROM fusio_scope_operation
-                      WHERE scope_id = :id';
-
-        $this->connection->executeQuery($sql, ['id' => $scopeId]);
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_SCOPE_ID, $scopeId);
+        $this->doDeleteBy($condition);
     }
 
     public function deleteAllFromOperation(int $operationId): void
     {
-        $sql = 'DELETE FROM fusio_scope_operation
-                      WHERE operation_id = :id';
-
-        $this->connection->executeQuery($sql, ['id' => $operationId]);
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_OPERATION_ID, $operationId);
+        $this->doDeleteBy($condition);
     }
 
     /**
@@ -52,15 +50,10 @@ class Operation extends Generated\ScopeOperationTable
      */
     public function getScopeNamesForOperation(int $operationId): array
     {
-        $sql = 'SELECT scope.name
-                  FROM fusio_scope_operation operation
-            INNER JOIN fusio_scope scope
-                    ON scope.id = operation.scope_id
-                 WHERE operation.operation_id = :id
-                   AND operation.allow = 1
-              ORDER BY operation.id ASC';
-
-        return $this->connection->fetchAllAssociative($sql, ['id' => $operationId]);
+        return array_map(
+            fn ($row) => ['name' => $row],
+            $this->resolveScopeNames($operationId)
+        );
     }
 
     /**
@@ -68,13 +61,31 @@ class Operation extends Generated\ScopeOperationTable
      */
     public function getScopesForOperation(int $operationId): array
     {
-        $sql = 'SELECT scope.name
-                  FROM fusio_scope_operation operation
-            INNER JOIN fusio_scope scope
-                    ON scope.id = operation.scope_id
-                 WHERE operation.operation_id = :id
-                   AND operation.allow = 1
-              ORDER BY operation.id ASC';
-        return $this->connection->fetchFirstColumn($sql, ['id' => $operationId]);
+        return $this->resolveScopeNames($operationId);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveScopeNames(int $operationId): array
+    {
+        $scopeIds = [];
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_OPERATION_ID, $operationId);
+        $condition->equals(self::COLUMN_ALLOW, 1);
+        foreach ($this->findAll($condition, 0, 0, Generated\ScopeOperationColumn::ID, \PSX\Sql\OrderBy::ASC) as $link) {
+            $scopeIds[] = $link->getScopeId();
+        }
+        if (empty($scopeIds)) {
+            return [];
+        }
+
+        $names = [];
+        $condition = Condition::withAnd();
+        $condition->in(Generated\ScopeTable::COLUMN_ID, $scopeIds);
+        foreach ($this->getTable(\Fusio\Impl\Table\Scope::class)->findAll($condition) as $scope) {
+            $names[] = $scope->getName();
+        }
+        return $names;
     }
 }

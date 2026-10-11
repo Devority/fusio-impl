@@ -36,10 +36,9 @@ class Allocation extends Generated\RateAllocationTable
 {
     public function deleteAllFromRate(int $rateId): void
     {
-        $sql = 'DELETE FROM fusio_rate_allocation 
-                      WHERE rate_id = :rate_id';
-
-        $this->connection->executeStatement($sql, ['rate_id' => $rateId]);
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_RATE_ID, $rateId);
+        $this->doDeleteBy($condition);
     }
 
     /**
@@ -47,9 +46,8 @@ class Allocation extends Generated\RateAllocationTable
      */
     public function getRateForRequest(?string $tenantId, Generated\OperationRow $operation, Model\AppInterface $app, Model\UserInterface $user): array|false
     {
+        // allocation-side predicates (nil/equals on rate_allocation columns)
         $condition = Condition::withAnd();
-        $condition->equals(Generated\RateTable::COLUMN_TENANT_ID, $tenantId);
-        $condition->equals(Generated\RateTable::COLUMN_STATUS, Rate::STATUS_ACTIVE);
         $condition->add(Condition::withOr()
             ->nil('rate_allocation.' . self::COLUMN_OPERATION_ID)
             ->equals('rate_allocation.' . self::COLUMN_OPERATION_ID, $operation->getId()));
@@ -66,17 +64,28 @@ class Allocation extends Generated\RateAllocationTable
             ->nil('rate_allocation.' . self::COLUMN_AUTHENTICATED)
             ->equals('rate_allocation.' . self::COLUMN_AUTHENTICATED, $user->isAnonymous() ? 0 : 1));
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'rate.' . Generated\RateTable::COLUMN_RATE_LIMIT,
-                'rate.' . Generated\RateTable::COLUMN_TIMESPAN,
-            ])
-            ->from('fusio_rate_allocation', 'rate_allocation')
-            ->innerJoin('rate_allocation', 'fusio_rate', 'rate', 'rate_allocation.' . self::COLUMN_RATE_ID . ' = rate.' . Generated\RateTable::COLUMN_ID)
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->orderBy('rate.' . Generated\RateTable::COLUMN_PRIORITY, 'DESC')
-            ->setParameters($condition->getValues());
-
-        return $this->connection->fetchAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        // resolve best matching rate via priority ordering across candidate allocations
+        $allocations = $this->findAll($condition);
+        $best = null;
+        $bestPriority = null;
+        $rateCondition = Condition::withAnd();
+        $rateCondition->equals(Generated\RateTable::COLUMN_TENANT_ID, $tenantId);
+        $rateCondition->equals(Generated\RateTable::COLUMN_STATUS, Rate::STATUS_ACTIVE);
+        foreach ($allocations as $allocation) {
+            $candidate = clone $rateCondition;
+            $candidate->equals(Generated\RateTable::COLUMN_ID, $allocation->getRateId());
+            $rate = $this->getTable(\Fusio\Impl\Table\Rate::class)->findOneBy($candidate);
+            if ($rate === null) {
+                continue;
+            }
+            if ($best === null || $rate->getPriority() > $bestPriority) {
+                $best = $rate;
+                $bestPriority = $rate->getPriority();
+            }
+        }
+        if ($best === null) {
+            return false;
+        }
+        return ['rate_limit' => $best->getRateLimit(), 'timespan' => $best->getTimespan()];
     }
 }

@@ -42,11 +42,13 @@ class DatabaseParser implements RoutingParserInterface
 {
     private Connection $connection;
     private FrameworkConfig $frameworkConfig;
+    private Table\Operation $operationTable;
 
-    public function __construct(Connection $connection, FrameworkConfig $frameworkConfig)
+    public function __construct(Connection $connection, FrameworkConfig $frameworkConfig, Table\Operation $operationTable)
     {
         $this->connection = $connection;
         $this->frameworkConfig = $frameworkConfig;
+        $this->operationTable = $operationTable;
     }
 
     public function getCollection(?FilterInterface $filter = null): RoutingCollection
@@ -61,21 +63,11 @@ class DatabaseParser implements RoutingParserInterface
             $condition->in(Table\Generated\OperationTable::COLUMN_CATEGORY_ID, $filter->getIds());
         }
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                Table\Generated\OperationTable::COLUMN_ID,
-                Table\Generated\OperationTable::COLUMN_HTTP_METHOD,
-                Table\Generated\OperationTable::COLUMN_HTTP_PATH,
-            ])
-            ->from('fusio_operation', 'operation')
-            ->orderBy(Table\Generated\OperationTable::COLUMN_NAME, 'ASC')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
         $collection = new RoutingCollection();
-        $result = $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $result = $this->operationTable->findAll($condition, 0, 0, Table\Generated\OperationColumn::NAME, \PSX\Sql\OrderBy::ASC);
 
         foreach ($result as $row) {
+            $row = $row->toRecord()->getAll();
             $controller = 'operation://' . $row[Table\Generated\OperationTable::COLUMN_ID];
             $method = $row[Table\Generated\OperationTable::COLUMN_ID];
 

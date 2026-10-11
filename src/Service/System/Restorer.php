@@ -45,9 +45,14 @@ class Restorer
      */
     private array $config;
 
-    public function __construct(private readonly Connection $connection, private readonly FrameworkConfig $frameworkConfig)
+    private ?\PSX\Sql\Storage\StorageInterface $storage = null;
+
+    public function __construct(private readonly Connection $connection, private readonly FrameworkConfig $frameworkConfig, \PSX\Sql\TableManagerInterface $tableManager)
     {
         $this->config = $this->buildConfig();
+        if ($tableManager instanceof \PSX\Sql\Storage\StorageAwareTableManagerInterface) {
+            $this->storage = $tableManager->getStorage();
+        }
     }
 
     /**
@@ -148,6 +153,10 @@ class Restorer
      */
     private function getTotalResults(array $config, Condition $condition): int
     {
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            return $this->storage->rawCount($config[self::TABLE_NAME], \PSX\Sql\MongoDB\ConditionTranslator::translate($condition));
+        }
+
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select(['COUNT(*) AS cnt'])
             ->from($config[self::TABLE_NAME])
@@ -163,6 +172,20 @@ class Restorer
      */
     private function getEntries(array $config, Condition $condition, int $startIndex, int $count): array
     {
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            $rows = $this->storage->rawFind($config[self::TABLE_NAME], \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), [
+                'projection' => ['id' => 1, $config[self::STATUS_COLUMN] => 1, $config[self::NAME_COLUMN] => 1],
+                'sort' => ['id' => -1],
+                'skip' => $startIndex,
+                'limit' => $count,
+            ]);
+            $out = [];
+            foreach ($rows as $row) {
+                $out[] = ['id' => $row['id'], 'status' => $row[$config[self::STATUS_COLUMN]] ?? null, 'name' => $row[$config[self::NAME_COLUMN]] ?? null];
+            }
+            return $out;
+        }
+
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select(['id', $config[self::STATUS_COLUMN] . ' AS status', $config[self::NAME_COLUMN] . ' AS name'])
             ->from($config[self::TABLE_NAME])

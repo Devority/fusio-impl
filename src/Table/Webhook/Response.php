@@ -41,28 +41,22 @@ class Response extends Generated\WebhookResponseTable
     /**
      * @return list<array{id: int, status: int, attempts: int, code: int, body: string, execute_date: string}>
      */
+    public function deleteAllByWebhook(int $webhookId): int
+    {
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_WEBHOOK_ID, $webhookId);
+        return $this->doDeleteBy($condition);
+    }
+
     public function getAllByWebhook(int $webhookId): array
     {
         $condition = Condition::withAnd();
         $condition->equals(self::COLUMN_WEBHOOK_ID, $webhookId);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'response.' . self::COLUMN_ID,
-                'response.' . self::COLUMN_STATUS,
-                'response.' . self::COLUMN_ATTEMPTS,
-                'response.' . self::COLUMN_CODE,
-                'response.' . self::COLUMN_BODY,
-                'response.' . self::COLUMN_EXECUTE_DATE,
-            ])
-            ->from('fusio_webhook_response', 'response')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->orderBy('response.' . self::COLUMN_EXECUTE_DATE, 'DESC')
-            ->orderBy('response.' . self::COLUMN_ID, 'ASC')
-            ->setParameters($condition->getValues())
-            ->setFirstResult(0)
-            ->setMaxResults(8);
-
-        return $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $result = [];
+        foreach ($this->findAll($condition, 0, 8, Generated\WebhookResponseColumn::EXECUTE_DATE, \PSX\Sql\OrderBy::DESC) as $response) {
+            $result[] = $response->toRecord()->getAll();
+        }
+        return $result;
     }
 }

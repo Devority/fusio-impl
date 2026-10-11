@@ -41,7 +41,7 @@ class RequestsPerUser extends ChartViewAbstract
         $condition->equals('log.' . Table\Generated\LogTable::COLUMN_TENANT_ID, $context->getTenantId());
         $condition->equals('log.' . Table\Generated\LogTable::COLUMN_CATEGORY_ID, $context->getUser()->getCategoryId());
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         // build data structure
         $sql = '    SELECT log.user_id,
@@ -53,9 +53,11 @@ class RequestsPerUser extends ChartViewAbstract
                   GROUP BY log.user_id, usr.name
                   ORDER BY COUNT(log.id) DESC, usr.name ASC';
 
-        $sql = $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6);
+        $sql = $this->connection !== null ? $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6) : $sql;
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        $result = $this->storage instanceof \PSX\Sql\MongoDB\MongoStorage
+            ? array_map(fn($g) => ['user_id' => $g['id'], 'name' => $g['name']], $this->storage->topGroups('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'user_id', 'fusio_user', 'name', 6))
+            : $this->connection->fetchAllAssociative($sql, $condition->getValues());
         $userIds = [];
         $data = [];
         $series = [];
@@ -80,7 +82,7 @@ class RequestsPerUser extends ChartViewAbstract
         }
 
         // fill data with values
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         $sql = '    SELECT COUNT(log.id) AS cnt,
                            log.user_id,
@@ -89,7 +91,9 @@ class RequestsPerUser extends ChartViewAbstract
                      WHERE ' . $expression . '
                   GROUP BY DATE(log.date), log.user_id';
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        $result = $this->storage instanceof \PSX\Sql\MongoDB\MongoStorage
+            ? array_map(fn($r) => ['user_id' => $r[0], 'date' => $r[1], 'cnt' => $r[2]], $this->storage->groupByDayAndKeyFlat('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'user_id', 'date', 'count', 'id'))
+            : $this->connection->fetchAllAssociative($sql, $condition->getValues());
 
         foreach ($result as $row) {
             if (isset($data[$row['user_id']][$row['date']])) {

@@ -41,7 +41,7 @@ class MostUsedActivities extends ChartViewAbstract
         $condition->equals('audit.' . Table\Generated\AuditTable::COLUMN_TENANT_ID, $context->getTenantId());
         $condition->notNil('audit.' . Table\Generated\AuditTable::COLUMN_EVENT);
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         // get the most used events and build data structure
         $sql = '  SELECT audit.event
@@ -50,9 +50,11 @@ class MostUsedActivities extends ChartViewAbstract
                 GROUP BY audit.event
                 ORDER BY COUNT(audit.event) DESC';
 
-        $sql = $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6);
+        $sql = $this->connection !== null ? $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6) : $sql;
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        $result = $this->storage instanceof \PSX\Sql\MongoDB\MongoStorage
+            ? array_map(fn($g) => ['event' => $g['id'], 'name' => $g['name']], $this->storage->topGroups('fusio_audit', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'event', null, 'name', 6))
+            : $this->connection->fetchAllAssociative($sql, $condition->getValues());
         $events = [];
         $data   = [];
         $series = [];
@@ -77,7 +79,7 @@ class MostUsedActivities extends ChartViewAbstract
         }
 
         // fill data with values
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         $sql = '    SELECT COUNT(audit.id) AS cnt,
                            audit.event,
@@ -86,7 +88,9 @@ class MostUsedActivities extends ChartViewAbstract
                      WHERE ' . $expression . '
                   GROUP BY DATE(audit.date), audit.event';
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        $result = $this->storage instanceof \PSX\Sql\MongoDB\MongoStorage
+            ? array_map(fn($r) => ['event' => $r[0], 'date' => $r[1], 'cnt' => $r[2]], $this->storage->groupByDayAndKeyFlat('fusio_audit', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'event', 'date', 'count', 'id'))
+            : $this->connection->fetchAllAssociative($sql, $condition->getValues());
 
         foreach ($result as $row) {
             if (isset($data[$row['event']][$row['date']])) {

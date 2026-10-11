@@ -77,17 +77,11 @@ class Webhook extends Generated\WebhookTable
             $condition->equals(self::COLUMN_USER_ID, $userId);
         }
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'webhook.' . self::COLUMN_ID,
-                'webhook.' . self::COLUMN_ENDPOINT,
-            ])
-            ->from('fusio_webhook', 'webhook')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->orderBy('webhook.' . self::COLUMN_ID, 'ASC')
-            ->setParameters($condition->getValues());
-
-        return $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $result = [];
+        foreach ($this->findAll($condition, 0, 0, \Fusio\Impl\Table\Generated\WebhookColumn::ID, \PSX\Sql\OrderBy::ASC) as $webhook) {
+            $result[] = ['id' => $webhook->getId(), 'endpoint' => $webhook->getEndpoint()];
+        }
+        return $result;
     }
 
     public function getCountForUser(?string $tenantId, int $userId): int
@@ -101,8 +95,6 @@ class Webhook extends Generated\WebhookTable
 
     public function deleteAllResponses(int $webhookId): void
     {
-        $this->connection->executeStatement('DELETE FROM fusio_webhook_response WHERE webhook_id = :webhook_id', [
-            'webhook_id' => $webhookId
-        ]);
+        $this->getTable(\Fusio\Impl\Table\Webhook\Response::class)->deleteAllByWebhook($webhookId);
     }
 }

@@ -40,7 +40,7 @@ class UsedPoints extends ChartViewAbstract
         $condition->equals('oper.' . Table\Generated\OperationTable::COLUMN_TENANT_ID, $context->getTenantId());
         $condition->equals('oper.' . Table\Generated\OperationTable::COLUMN_CATEGORY_ID, $context->getUser()->getCategoryId());
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         // build data structure
         $fromDate = $filter->getFrom();
@@ -65,7 +65,9 @@ class UsedPoints extends ChartViewAbstract
                    WHERE ' . $expression . '
                 GROUP BY DATE(usag.insert_date)';
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        $result = $this->storage instanceof \PSX\Sql\MongoDB\MongoStorage
+            ? array_map(fn($g) => ['user_id' => $g['id'], 'name' => $g['name']], $this->storage->topGroups('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'user_id', 'fusio_user', 'name', 6))
+            : $this->connection->fetchAllAssociative($sql, $condition->getValues());
 
         foreach ($result as $row) {
             if (isset($data[$row['date']])) {

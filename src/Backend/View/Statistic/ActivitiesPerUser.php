@@ -41,7 +41,7 @@ class ActivitiesPerUser extends ChartViewAbstract
         $condition->equals('audit.' . Table\Generated\AuditTable::COLUMN_TENANT_ID, $context->getTenantId());
         $condition->notNil('audit.' . Table\Generated\AuditTable::COLUMN_EVENT);
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         // build data structure
         $sql = '    SELECT audit.user_id,
@@ -53,9 +53,11 @@ class ActivitiesPerUser extends ChartViewAbstract
                   GROUP BY audit.user_id, usr.name
                   ORDER BY COUNT(audit.id) DESC';
 
-        $sql = $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6);
+        $sql = $this->connection !== null ? $this->connection->getDatabasePlatform()->modifyLimitQuery($sql, 6) : $sql;
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        $result = $this->storage instanceof \PSX\Sql\MongoDB\MongoStorage
+            ? array_map(fn($g) => ['user_id' => $g['id'], 'name' => $g['name']], $this->storage->topGroups('fusio_audit', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'user_id', 'fusio_user', 'name', 6))
+            : $this->connection->fetchAllAssociative($sql, $condition->getValues());
         $userIds = [];
         $data = [];
         $series = [];
@@ -80,7 +82,7 @@ class ActivitiesPerUser extends ChartViewAbstract
         }
 
         // fill data with values
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = $this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '';
 
         $sql = '    SELECT COUNT(audit.id) AS cnt,
                            audit.user_id,
@@ -89,7 +91,9 @@ class ActivitiesPerUser extends ChartViewAbstract
                      WHERE ' . $expression . '
                   GROUP BY DATE(audit.date), audit.user_id';
 
-        $result = $this->connection->fetchAllAssociative($sql, $condition->getValues());
+        $result = $this->storage instanceof \PSX\Sql\MongoDB\MongoStorage
+            ? array_map(fn($r) => ['user_id' => $r[0], 'date' => $r[1], 'cnt' => $r[2]], $this->storage->groupByDayAndKeyFlat('fusio_audit', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'user_id', 'date', 'count', 'id'))
+            : $this->connection->fetchAllAssociative($sql, $condition->getValues());
 
         foreach ($result as $row) {
             if (isset($data[$row['user_id']][$row['date']])) {

@@ -40,7 +40,7 @@ class UserRegistrations extends ChartViewAbstract
         $condition  = $filter->getCondition($this->getTable(Table\User::class), [QueryFilter::COLUMN_SEARCH => Table\Generated\UserColumn::NAME], 'usr');
         $condition->equals('usr.' . Table\Generated\UserTable::COLUMN_TENANT_ID, $context->getTenantId());
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        $expression = ($this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '');
 
         // build data structure
         $fromDate = $filter->getFrom();
@@ -55,6 +55,28 @@ class UserRegistrations extends ChartViewAbstract
 
             $fromDate = $fromDate->add(new \DateInterval('P1D'));
         }
+
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+
+
+            $counts = $this->storage->groupByDay('fusio_user', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), 'date', 'count', 'id');
+
+
+            foreach ($counts as $d => $v) {
+
+
+                if (isset($data[$d])) { $data[$d] = (int) $v; }
+
+
+            }
+
+
+            return $this->build([$data], ['Users'], $labels);
+
+
+        }
+
+
 
         // fill values
         $sql = '  SELECT COUNT(usr.id) AS cnt,

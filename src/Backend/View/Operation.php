@@ -122,6 +122,23 @@ class Operation extends ViewAbstract
         $condition->equals(Table\Generated\OperationTable::COLUMN_CATEGORY_ID, $categoryId);
         $condition->equals(Table\Generated\OperationTable::COLUMN_STATUS, Table\Operation::STATUS_ACTIVE);
 
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            $rows = $this->storage->rawFind('fusio_operation', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), [
+                'projection' => ['http_method' => 1, 'http_path' => 1, 'name' => 1],
+                'sort' => ['http_path' => 1],
+            ]);
+            $data = [];
+            foreach ($rows as $row) {
+                if (!isset($data[$row['http_path']])) {
+                    $data[$row['http_path']] = [];
+                }
+                if (!isset($data[$row['http_path']][$row['http_method']])) {
+                    $data[$row['http_path']][$row['http_method']] = $row['name'];
+                }
+            }
+            return ['kind' => \Fusio\Impl\Service\TypeSystem\KindBuilder::build(Model\System\Route::class), 'routes' => $data];
+        }
+
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select(['operation.http_method', 'operation.http_path', 'operation.name'])
             ->from('fusio_operation', 'operation')

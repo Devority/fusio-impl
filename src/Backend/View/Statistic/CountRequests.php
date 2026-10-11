@@ -48,8 +48,15 @@ class CountRequests extends ViewAbstract
         $condition->equals('log.' . Table\Generated\LogTable::COLUMN_TENANT_ID, $context->getTenantId());
         $condition->equals('log.' . Table\Generated\LogTable::COLUMN_CATEGORY_ID, $context->getUser()->getCategoryId());
 
-        $expression = $condition->getExpression($this->connection->getDatabasePlatform());
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            return [
+                'count' => $this->storage->rawCount('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition)),
+                'from'  => $filter->getFrom()->format(\DateTimeInterface::RFC3339),
+                'to'    => $filter->getTo()->format(\DateTimeInterface::RFC3339),
+            ];
+        }
 
+        $expression = ($this->connection !== null ? $condition->getExpression($this->connection->getDatabasePlatform()) : '');
         $sql = 'SELECT COUNT(log.id) AS cnt
                   FROM fusio_log log
                  WHERE ' . $expression;

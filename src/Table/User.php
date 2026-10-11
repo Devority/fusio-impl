@@ -105,25 +105,14 @@ class User extends Generated\UserTable
         $condition->equals(self::COLUMN_TENANT_ID, $tenantId);
         $condition->equals(self::COLUMN_ID, $userId);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'usr.' . self::COLUMN_PASSWORD,
-            ])
-            ->from('fusio_user', 'usr')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        $password = $this->connection->fetchOne($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $row = $this->findOneBy($condition);
+        $password = $row !== null ? $row->getPassword() : null;
         if (empty($password)) {
             return false;
         }
 
         if (!$verifyOld || password_verify($oldPassword ?? '', (string) $password)) {
-            $this->connection->update('fusio_user', [
-                self::COLUMN_PASSWORD => \password_hash($newPassword, PASSWORD_DEFAULT),
-            ], [
-                self::COLUMN_ID => $userId,
-            ]);
+            $this->doUpdateBy($condition, new \PSX\Record\Record([self::COLUMN_PASSWORD => \password_hash($newPassword, PASSWORD_DEFAULT)]));
 
             return true;
         } else {
@@ -133,17 +122,29 @@ class User extends Generated\UserTable
 
     public function payPoints(int $userId, int $points): void
     {
-        $this->connection->executeStatement('UPDATE fusio_user SET points = COALESCE(points, 0) - :points WHERE id = :id', [
-            'id' => $userId,
-            'points' => $points,
-        ]);
+        $this->incrementPoints($userId, -$points);
     }
 
     public function creditPoints(int $userId, int $points): void
     {
-        $this->connection->executeStatement('UPDATE fusio_user SET points = COALESCE(points, 0) + :points WHERE id = :id', [
+        $this->incrementPoints($userId, $points);
+    }
+
+    private function incrementPoints(int $userId, int $delta): void
+    {
+        if ($this->getStorage() instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            $this->getStorage()->getDatabase()->selectCollection('fusio_user')->updateOne(
+                ['id' => $userId],
+                [
+                    ['$set' => ['points' => ['$add' => [['$ifNull' => ['$points', 0]], $delta]]]],
+                ]
+            );
+            return;
+        }
+
+        $this->connection->executeStatement('UPDATE fusio_user SET points = COALESCE(points, 0) + :delta WHERE id = :id', [
             'id' => $userId,
-            'points' => $points,
+            'delta' => $delta,
         ]);
     }
 
@@ -153,14 +154,7 @@ class User extends Generated\UserTable
         $condition->equals(self::COLUMN_TENANT_ID, $tenantId);
         $condition->equals(self::COLUMN_ID, $userId);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'usr.' . self::COLUMN_PLAN_ID,
-            ])
-            ->from('fusio_user', 'usr')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        return (int) $this->connection->fetchOne($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $row = $this->findOneBy($condition);
+        return $row !== null ? (int) ($row->getPlanId() ?? 0) : 0;
     }
 }

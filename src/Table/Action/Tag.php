@@ -21,6 +21,7 @@
 namespace Fusio\Impl\Table\Action;
 
 use Fusio\Impl\Table\Generated;
+use PSX\Sql\Condition;
 
 /**
  * Tag
@@ -33,16 +34,14 @@ class Tag extends Generated\ActionTagTable
 {
     public function findHashByVersion(string $version, int $actionId): ?string
     {
-        $query = 'SELECT cmt.commit_hash
-                    FROM fusio_action_tag tag
-              INNER JOIN fusio_action_commit cmt
-                      ON tag.commit_id = cmt.id
-                   WHERE tag.version = :version
-                     AND cmt.action_id = :action_id';
-
-        return $this->connection->fetchOne($query, [
-            'version' => $version,
-            'action_id' => $actionId
-        ]);
+        $condition = Condition::withAnd();
+        $condition->equals(self::COLUMN_VERSION, $version);
+        foreach ($this->findAll($condition) as $tag) {
+            $commit = $this->getTable(\Fusio\Impl\Table\Action\Commit::class)->find($tag->getCommitId());
+            if ($commit !== null && $commit->getActionId() === $actionId) {
+                return $commit->getCommitHash();
+            }
+        }
+        return null;
     }
 }

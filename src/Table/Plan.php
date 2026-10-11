@@ -74,23 +74,27 @@ class Plan extends Generated\PlanTable
     {
         $now = new \DateTime();
 
-        $condition = Condition::withAnd();
-        $condition->equals('plan.' . self::COLUMN_TENANT_ID, $tenantId);
-        $condition->equals('trx.' . Generated\TransactionTable::COLUMN_TENANT_ID, $tenantId);
-        $condition->equals('trx.' . Generated\TransactionTable::COLUMN_USER_ID, $userId);
-        $condition->lessThan('trx.' . Generated\TransactionTable::COLUMN_PERIOD_START, $now->format($this->connection->getDatabasePlatform()->getDateTimeFormatString()));
-        $condition->greaterThan('trx.' . Generated\TransactionTable::COLUMN_PERIOD_END, $now->format($this->connection->getDatabasePlatform()->getDateTimeFormatString()));
+        $trxCondition = Condition::withAnd();
+        $trxCondition->equals(Generated\TransactionTable::COLUMN_TENANT_ID, $tenantId);
+        $trxCondition->equals(Generated\TransactionTable::COLUMN_USER_ID, $userId);
+        $trxCondition->lessThan(Generated\TransactionTable::COLUMN_PERIOD_START, $now);
+        $trxCondition->greaterThan(Generated\TransactionTable::COLUMN_PERIOD_END, $now);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                'plan.*',
-            ])
-            ->from('fusio_transaction', 'trx')
-            ->innerJoin('trx', 'fusio_plan', 'plan', 'plan.' . self::COLUMN_ID . ' = trx.' . Generated\TransactionTable::COLUMN_PLAN_ID)
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
+        $planIds = [];
+        foreach ($this->getTable(\Fusio\Impl\Table\Transaction::class)->findAll($trxCondition) as $trx) {
+            $planIds[] = $trx->getPlanId();
+        }
+        if (empty($planIds)) {
+            return [];
+        }
 
-        $result = $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $result = [];
+        $planCondition = Condition::withAnd();
+        $planCondition->in(self::COLUMN_ID, $planIds);
+        $planCondition->equals(self::COLUMN_TENANT_ID, $tenantId);
+        foreach ($this->findAll($planCondition) as $plan) {
+            $result[] = $plan->toRecord()->getAll();
+        }
 
         $plans = [];
         foreach ($result as $row) {

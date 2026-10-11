@@ -56,6 +56,40 @@ class Scope extends ViewAbstract
             $condition->equals('scope.' . Table\Generated\ScopeTable::COLUMN_NAME, '%' . $search . '%');
         }
 
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            $userScopeFilter = \PSX\Sql\MongoDB\ConditionTranslator::translateForAlias($condition, 'user_scope');
+            $scopeFilter = \PSX\Sql\MongoDB\ConditionTranslator::translateForAlias($condition, 'scope', true) ?? [];
+            $pipeline = [
+                ['$match' => $userScopeFilter],
+                ['$lookup' => ['from' => 'fusio_scope', 'localField' => 'scope_id', 'foreignField' => 'id', 'as' => 'scope']],
+                ['$unwind' => '$scope'],
+            ];
+            if (!empty($scopeFilter)) {
+                $pipeline[] = ['$match' => $scopeFilter];
+            }
+            $total = $this->storage->aggregate('fusio_user_scope', [...$pipeline, ['$count' => 'cnt']]);
+            $rows = $this->storage->aggregate('fusio_user_scope', [...$pipeline, ['$sort' => ['scope.name' => 1]], ['$skip' => $startIndex], ['$limit' => $count]]);
+            $entries = [];
+            foreach ($rows as $row) {
+                $scope = $row['scope'] ?? [];
+                $metadata = $scope['metadata'] ?? null;
+                $entries[] = [
+                    'kind' => \Fusio\Impl\Service\TypeSystem\KindBuilder::build(Model\Consumer\Scope::class),
+                    'id' => (int) ($scope['id'] ?? 0),
+                    'name' => $scope['name'] ?? null,
+                    'description' => $scope['description'] ?? null,
+                    'metadata' => is_string($metadata) ? (json_decode($metadata) ?? null) : $metadata,
+                ];
+            }
+            return [
+                'kind' => \Fusio\Impl\Service\TypeSystem\KindBuilder::build(Model\Consumer\ScopeCollection::class),
+                'totalResults' => (int) ($total[0]['cnt'] ?? 0),
+                'startIndex' => $startIndex,
+                'itemsPerPage' => $count,
+                'entry' => $entries,
+            ];
+        }
+
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select([
                 'scope.' . Table\Generated\ScopeTable::COLUMN_ID,
@@ -117,6 +151,35 @@ class Scope extends ViewAbstract
         $condition = Condition::withAnd();
         $condition->equals('user_scope.' . Table\Generated\UserScopeTable::COLUMN_USER_ID, $context->getUser()->getId());
         $condition->equals('scope.' . Table\Generated\ScopeTable::COLUMN_TENANT_ID, $context->getTenantId());
+
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            // per-category: user_scope join scope filtered by tenant + user + category
+            $base = [
+                ['$match' => ['user_id' => $context->getUser()->getId()]],
+                ['$lookup' => ['from' => 'fusio_scope', 'localField' => 'scope_id', 'foreignField' => 'id', 'as' => 'scope']],
+                ['$unwind' => '$scope'],
+                ['$match' => ['scope.tenant_id' => $context->getTenantId()]],
+                ['$sort' => ['scope.name' => 1]],
+            ];
+            $categories = $this->storage->rawFind('fusio_category', ['tenant_id' => $context->getTenantId()], ['sort' => ['name' => 1]]);
+            $result = [];
+            foreach ($categories as $cat) {
+                $pipeline = [...$base, ['$match' => ['scope.category_id' => $cat['id']]]];
+                $scopes = [];
+                foreach ($this->storage->aggregate('fusio_user_scope', $pipeline) as $row) {
+                    $scope = $row['scope'] ?? [];
+                    $scopes[] = [
+                        'id' => (int) ($scope['id'] ?? 0),
+                        'name' => $scope['name'] ?? null,
+                        'description' => $scope['description'] ?? null,
+                    ];
+                }
+                if (!empty($scopes)) {
+                    $result[] = ['id' => (int) $cat['id'], 'name' => $cat['name'] ?? null, 'scopes' => $scopes];
+                }
+            }
+            return ['categories' => $result];
+        }
 
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select([

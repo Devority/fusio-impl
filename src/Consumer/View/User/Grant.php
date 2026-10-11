@@ -48,6 +48,43 @@ class Grant extends ViewAbstract
         $condition->equals('app.' . Table\Generated\AppTable::COLUMN_TENANT_ID, $context->getTenantId());
         $condition->equals('app.' . Table\Generated\AppTable::COLUMN_STATUS, Table\App::STATUS_ACTIVE);
 
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            $grantFilter = \PSX\Sql\MongoDB\ConditionTranslator::translateForAlias($condition, 'user_grant');
+            $appFilter = \PSX\Sql\MongoDB\ConditionTranslator::translateForAlias($condition, 'app', true) ?? [];
+            $pipeline = [
+                ['$match' => $grantFilter],
+                ['$lookup' => ['from' => 'fusio_app', 'localField' => 'app_id', 'foreignField' => 'id', 'as' => 'app']],
+                ['$unwind' => '$app'],
+            ];
+            if (!empty($appFilter)) {
+                $pipeline[] = ['$match' => $appFilter];
+            }
+            $total = $this->storage->aggregate('fusio_user_grant', [...$pipeline, ['$count' => 'cnt']]);
+            $rows = $this->storage->aggregate('fusio_user_grant', [...$pipeline, ['$sort' => ['id' => -1]], ['$skip' => $startIndex], ['$limit' => $count]]);
+            $entries = [];
+            foreach ($rows as $row) {
+                $app = $row['app'] ?? [];
+                $entries[] = [
+                    'kind' => \Fusio\Impl\Service\TypeSystem\KindBuilder::build(Model\Consumer\Grant::class),
+                    'id' => (int) ($row['id'] ?? 0),
+                    'allow' => (int) ($row['allow'] ?? 0),
+                    'createDate' => isset($row['date']) ? (new \DateTime((string) $row['date']))->format(\DateTime::RFC3339) : null,
+                    'app' => [
+                        'id' => (int) ($row['app_id'] ?? 0),
+                        'name' => $app['name'] ?? null,
+                        'url' => $app['url'] ?? null,
+                    ],
+                ];
+            }
+            return [
+                'kind' => \Fusio\Impl\Service\TypeSystem\KindBuilder::build(Model\Consumer\GrantCollection::class),
+                'totalResults' => (int) ($total[0]['cnt'] ?? 0),
+                'startIndex' => $startIndex,
+                'itemsPerPage' => $count,
+                'entry' => $entries,
+            ];
+        }
+
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select([
                 'user_grant.' . Table\Generated\UserGrantTable::COLUMN_ID,
