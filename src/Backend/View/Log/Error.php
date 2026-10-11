@@ -50,11 +50,12 @@ class Error extends ViewAbstract
         if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
             $errFilter = \PSX\Sql\MongoDB\ConditionTranslator::translateForAlias($condition, 'error');
             $logFilter = \PSX\Sql\MongoDB\ConditionTranslator::translateForAlias($condition, 'log', true);
-            $pipeline = [
-                ['$match' => $errFilter],
-                ['$lookup' => ['from' => 'fusio_log', 'localField' => 'log_id', 'foreignField' => 'id', 'as' => 'log']],
-                ['$unwind' => '$log'],
-            ];
+            $pipeline = [];
+            if (!empty($errFilter)) {
+                $pipeline[] = ['$match' => $errFilter];
+            }
+            $pipeline[] = ['$lookup' => ['from' => 'fusio_log', 'localField' => 'log_id', 'foreignField' => 'id', 'as' => 'log']];
+            $pipeline[] = ['$unwind' => '$log'];
             if (!empty($logFilter)) {
                 $pipeline[] = ['$match' => $logFilter];
             }

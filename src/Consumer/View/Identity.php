@@ -29,7 +29,7 @@ use Fusio\Model;
 use PSX\Http\Exception as StatusCode;
 use PSX\Nested\Builder;
 use PSX\Sql\OrderBy;
-use PSX\Sql\TableManager;
+use PSX\Sql\TableManagerInterface;
 use PSX\Sql\ViewAbstract;
 
 /**
