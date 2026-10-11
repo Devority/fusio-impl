@@ -70,7 +70,13 @@ class Token extends Generated\TokenTable
         if ($row === null) {
             return false;
         }
-        return $row->toRecord()->getAll();
+        $data = $row->toRecord()->getAll();
+        foreach (['expire', 'date'] as $key) {
+            if (($data[$key] ?? null) instanceof \DateTimeInterface) {
+                $data[$key] = $data[$key]->format('Y-m-d H:i:s');
+            }
+        }
+        return $data;
     }
 
     /**
