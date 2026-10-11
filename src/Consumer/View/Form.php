@@ -44,7 +44,7 @@ class Form extends ViewAbstract
     private JsonSchemaResolver $jsonSchemaResolver;
     private FrameworkConfig $config;
 
-    public function __construct(TableManager $tableManager, JsonSchemaResolver $jsonSchemaResolver, FrameworkConfig $config)
+    public function __construct(TableManagerInterface $tableManager, JsonSchemaResolver $jsonSchemaResolver, FrameworkConfig $config)
     {
         parent::__construct($tableManager);
 

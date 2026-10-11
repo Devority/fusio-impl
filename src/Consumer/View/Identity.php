@@ -43,7 +43,7 @@ class Identity extends ViewAbstract
 {
     private FrameworkConfig $frameworkConfig;
 
-    public function __construct(TableManager $tableManager, FrameworkConfig $frameworkConfig)
+    public function __construct(TableManagerInterface $tableManager, FrameworkConfig $frameworkConfig)
     {
         parent::__construct($tableManager);
 
