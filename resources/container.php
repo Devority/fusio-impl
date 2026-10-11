@@ -94,7 +94,7 @@ return static function (ContainerConfigurator $container) {
     $services->load('Fusio\\Impl\\Controller\\', __DIR__ . '/../src/Controller')
         ->public();
     $services->load('Fusio\\Impl\\Table\\', __DIR__ . '/../src/Table')
-        ->exclude('Generated')
+        ->exclude('{Generated,Mongo}')
         ->public();
     $services->load('Fusio\\Impl\\Mail\\Sender\\', __DIR__ . '/../src/Mail/Sender');
     $services->load('Fusio\\Impl\\Connection\\', __DIR__ . '/../src/Connection');
