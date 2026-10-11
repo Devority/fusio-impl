@@ -42,7 +42,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class MongoInstallCommand extends Command
 {
-    public function __construct(private \PSX\Sql\TableManagerInterface $tableManager)
+    public function __construct(private \PSX\Sql\TableManagerInterface $tableManager, private \Fusio\Impl\Service\System\FrameworkConfig $frameworkConfig)
     {
         parent::__construct();
     }
@@ -68,7 +68,7 @@ class MongoInstallCommand extends Command
         }
 
         $output->writeln('Seeding MongoDB installation data...');
-        MongoDataSyncronizer::sync($storage);
+        MongoDataSyncronizer::sync($storage, $this->frameworkConfig->getProjectKey());
         $output->writeln('<info>Done — Fusio seed data written to MongoDB.</info>');
 
         return self::SUCCESS;

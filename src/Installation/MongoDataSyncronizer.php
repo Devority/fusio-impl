@@ -47,7 +47,7 @@ class MongoDataSyncronizer
         'fusio_identity', 'fusio_webhook', 'fusio_rate', 'fusio_agent',
     ];
 
-    public static function sync(MongoStorage $storage): void
+    public static function sync(MongoStorage $storage, ?string $projectKey = null): void
     {
         $db = $storage->getDatabase();
         $data = NewInstallation::getData();
@@ -64,6 +64,44 @@ class MongoDataSyncronizer
                 self::insert($storage, $tableName, $row);
             }
         }
+
+        self::patchSystemConnection($storage, $projectKey);
+    }
+
+    /**
+     * The seeded "System" connection uses the DBAL-backed System class which can
+     * not work under MongoDB. Rewire it to the mongodb adapter so health checks
+     * and mongo-based actions resolve to the same backend storage uses.
+     */
+    private static function patchSystemConnection(MongoStorage $storage, ?string $projectKey): void
+    {
+        $dsn = $storage->getDsn();
+        if ($dsn === null) {
+            return;
+        }
+
+        $db = $storage->getDatabase();
+        $collection = $db->selectCollection('fusio_connection');
+        $row = $collection->findOne(['name' => 'System']);
+        if ($row === null) {
+            return;
+        }
+
+        $config = [
+            'url'      => $dsn,
+            'database' => $db->getDatabaseName(),
+        ];
+        $config = $projectKey !== null
+            ? \Fusio\Impl\Service\Connection\Encrypter::encrypt($config, $projectKey)
+            : \PSX\Json\Parser::encode($config);
+
+        $collection->updateOne(
+            ['_id' => $row->_id],
+            ['$set' => [
+                'class'  => \Fusio\Engine\Inflection\ClassName::serialize(\Fusio\Adapter\Mongodb\Connection\MongoDB::class),
+                'config' => $config,
+            ]]
+        );
     }
 
     /**
