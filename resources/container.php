@@ -185,4 +185,14 @@ return static function (ContainerConfigurator $container) {
     $services->set(Transport::class);
     $services->alias(Cli\Transport\TransportInterface::class, Transport::class);
 
+
+    // MongoDB storage backend: when FUSIO_CONNECTION points to a mongodb:// DSN
+    // all Table persistence is served by MongoStorage instead of Doctrine DBAL
+    $connectionDsn = (string) (getenv('FUSIO_CONNECTION') ?: '');
+    if (str_starts_with($connectionDsn, 'mongodb://') || str_starts_with($connectionDsn, 'mongodb+srv://')) {
+        $services->set(\Fusio\Impl\Table\Mongo\MongoTableManager::class)
+            ->arg('$storage', \PSX\Sql\MongoDB\MongoStorage::fromDsn($connectionDsn));
+        $services->alias(\PSX\Sql\TableManagerInterface::class, \Fusio\Impl\Table\Mongo\MongoTableManager::class);
+        $services->alias(\PSX\Sql\TableManager::class, \Fusio\Impl\Table\Mongo\MongoTableManager::class);
+    }
 };

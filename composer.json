@@ -1,70 +1,72 @@
 {
-  "name": "fusio/impl",
-  "description": "Fusio implementation",
-  "homepage": "https://www.fusio-project.org",
-  "license": "Apache-2.0",
-  "authors": [
-    {
-      "name": "Christoph Kappestein",
-      "email": "christoph.kappestein@gmail.com",
-      "homepage": "https://chrisk.app"
-    }
-  ],
-  "require": {
-    "php": ">=8.4",
-    "psx/framework": "^8.0",
-    "psx/openssl": "^2.0",
-    "psx/cloudevents": "^1.0",
-    "fusio/cli": "^4.0",
-    "fusio/model": "^5.0",
-    "fusio/engine": "^6.0",
-    "fusio/sdk": "^7.0",
-    "fusio/adapter-ai": "^0.6",
-    "fusio/adapter-amqp": "^6.0",
-    "fusio/adapter-beanstalk": "^6.0",
-    "fusio/adapter-cli": "^6.0",
-    "fusio/adapter-fcgi": "^6.0",
-    "fusio/adapter-file": "^6.0",
-    "fusio/adapter-graphql": "^6.0",
-    "fusio/adapter-http": "^6.0",
-    "fusio/adapter-php": "^6.0",
-    "fusio/adapter-redis": "^6.0",
-    "fusio/adapter-sdkfabric": "^0.2",
-    "fusio/adapter-smtp": "^6.0",
-    "fusio/adapter-soap": "^6.0",
-    "fusio/adapter-sql": "^6.0",
-    "fusio/adapter-stripe": "^6.0",
-    "fusio/adapter-util": "^6.0",
-    "fusio/adapter-worker": "^6.0",
-    "fusio/marketplace": "^0.2",
-    "firebase/php-jwt": "^7.0",
-    "symfony/filesystem": "^6.0|^7.0",
-    "symfony/mailer": "^6.0|^7.0",
-    "symfony/doctrine-messenger": "^6.0|^7.0",
-    "symfony/uid": "^6.0|^7.0",
-    "dragonmantank/cron-expression": "^3.3",
-    "phpstan/phpdoc-parser": "^1.0|^2.0",
-    "webonyx/graphql-php": "^15.24",
-    "mcp/sdk": "^0.8"
-  },
-  "require-dev": {
-    "phpunit/phpunit": "^12.0",
-    "phpstan/phpstan": "^2.1",
-    "rector/rector": "^2.4"
-  },
-  "autoload": {
-    "psr-4": {
-      "Fusio\\Impl\\": "src/"
-    }
-  },
-  "autoload-dev": {
-    "psr-4": {
-      "Fusio\\Impl\\Tests\\": "tests/"
-    }
-  },
-  "config": {
-    "allow-plugins": {
-      "php-http/discovery": false
-    }
-  }
+    "name": "devority/fusio-impl",
+    "description": "Fusio implementation",
+    "homepage": "https://www.fusio-project.org",
+    "license": "Apache-2.0",
+    "authors": [
+        {
+            "name": "Christoph Kappestein",
+            "email": "christoph.kappestein@gmail.com",
+            "homepage": "https://chrisk.app"
+        }
+    ],
+    "require": {
+        "php": ">=8.4",
+        "psx/framework": "^8.0",
+        "psx/openssl": "^2.0",
+        "psx/cloudevents": "^1.0",
+        "fusio/cli": "^4.0",
+        "fusio/model": "^5.0",
+        "fusio/engine": "^6.0",
+        "fusio/sdk": "^7.0",
+        "fusio/adapter-ai": "^0.6",
+        "fusio/adapter-amqp": "^6.0",
+        "fusio/adapter-beanstalk": "^6.0",
+        "fusio/adapter-cli": "^6.0",
+        "fusio/adapter-fcgi": "^6.0",
+        "fusio/adapter-file": "^6.0",
+        "fusio/adapter-graphql": "^6.0",
+        "fusio/adapter-http": "^6.0",
+        "fusio/adapter-php": "^6.0",
+        "fusio/adapter-redis": "^6.0",
+        "fusio/adapter-sdkfabric": "^0.2",
+        "fusio/adapter-smtp": "^6.0",
+        "fusio/adapter-soap": "^6.0",
+        "fusio/adapter-sql": "^6.0",
+        "fusio/adapter-stripe": "^6.0",
+        "fusio/adapter-util": "^6.0",
+        "fusio/adapter-worker": "^6.0",
+        "fusio/marketplace": "^0.2",
+        "firebase/php-jwt": "^7.0",
+        "symfony/filesystem": "^6.0|^7.0",
+        "symfony/mailer": "^6.0|^7.0",
+        "symfony/doctrine-messenger": "^6.0|^7.0",
+        "symfony/uid": "^6.0|^7.0",
+        "dragonmantank/cron-expression": "^3.3",
+        "phpstan/phpdoc-parser": "^1.0|^2.0",
+        "webonyx/graphql-php": "^15.24",
+        "mcp/sdk": "^0.8",
+        "mongodb/mongodb": "^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.0",
+        "phpstan/phpstan": "^2.1",
+        "rector/rector": "^2.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Fusio\\Impl\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Fusio\\Impl\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": false
+        }
+    },
+    "repositories": []
 }
