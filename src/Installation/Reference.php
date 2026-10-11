@@ -77,4 +77,33 @@ class Reference implements ResolvableInterface
 
         return $id;
     }
+
+    /**
+     * MongoDB variant of resolve() used by MongoDataSyncronizer
+     */
+    public function resolveMongo(\MongoDB\Database $db): int
+    {
+        $hasTenantColumn = true;
+        if ($this->tableName === 'fusio_page') {
+            $column = 'slug';
+        } elseif ($this->tableName === 'fusio_action_commit' || $this->tableName === 'fusio_schema_commit') {
+            $column = 'commit_hash';
+            $hasTenantColumn = false;
+        } else {
+            $column = 'name';
+        }
+
+        $filter = [$column => $this->name];
+        if ($hasTenantColumn) {
+            $filter['tenant_id'] = $this->tenantId;
+        }
+
+        $doc = $db->selectCollection($this->tableName)->findOne($filter);
+        $id = (int) ($doc['id'] ?? 0);
+        if (empty($id)) {
+            throw new RuntimeException('Could not resolve ' . $this->name . ' for table ' . $this->tableName);
+        }
+
+        return $id;
+    }
 }
