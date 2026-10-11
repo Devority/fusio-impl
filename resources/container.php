@@ -191,7 +191,8 @@ return static function (ContainerConfigurator $container) {
     $connectionDsn = (string) (getenv('APP_CONNECTION') ?: getenv('FUSIO_CONNECTION') ?: '');
     if (str_starts_with($connectionDsn, 'mongodb://') || str_starts_with($connectionDsn, 'mongodb+srv://')) {
         $services->set(\Fusio\Impl\Table\Mongo\MongoTableManager::class)
-            ->arg('$storage', \PSX\Sql\MongoDB\MongoStorage::fromDsn($connectionDsn));
+            ->factory([\Fusio\Impl\Table\Mongo\MongoTableManager::class, 'fromDsn'])
+            ->args([$connectionDsn]);
         $services->alias(\PSX\Sql\TableManagerInterface::class, \Fusio\Impl\Table\Mongo\MongoTableManager::class);
         $services->alias(\PSX\Sql\TableManager::class, \Fusio\Impl\Table\Mongo\MongoTableManager::class);
         // satisfy Doctrine\DBAL\Connection type-hints with an in-memory sqlite
