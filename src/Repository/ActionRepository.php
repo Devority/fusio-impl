@@ -39,11 +39,15 @@ class ActionRepository implements Repository\ActionInterface
     private Connection $connection;
     private Service\System\FrameworkConfig $frameworkConfig;
     private bool $async = true;
+    private Table\Action $actionTable;
+    private Table\Generated\ActionCommitTable $actionCommitTable;
 
-    public function __construct(Connection $connection, Service\System\FrameworkConfig $frameworkConfig)
+    public function __construct(Connection $connection, Service\System\FrameworkConfig $frameworkConfig, Table\Action $actionTable, Table\Generated\ActionCommitTable $actionCommitTable)
     {
         $this->connection = $connection;
         $this->frameworkConfig = $frameworkConfig;
+        $this->actionTable = $actionTable;
+        $this->actionCommitTable = $actionCommitTable;
     }
 
     public function getAll(): array
@@ -52,26 +56,9 @@ class ActionRepository implements Repository\ActionInterface
         $condition->equals(Table\Generated\ActionTable::COLUMN_TENANT_ID, $this->frameworkConfig->getTenantId());
         $condition->equals(Table\Generated\ActionTable::COLUMN_STATUS, Table\Action::STATUS_ACTIVE);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                Table\Generated\ActionTable::COLUMN_ID,
-                Table\Generated\ActionTable::COLUMN_NAME,
-                Table\Generated\ActionTable::COLUMN_CLASS,
-                Table\Generated\ActionTable::COLUMN_ASYNC,
-                Table\Generated\ActionTable::COLUMN_CONFIG,
-                Table\Generated\ActionTable::COLUMN_DATE,
-                Table\Generated\ActionTable::COLUMN_METADATA,
-            ])
-            ->from('fusio_action', 'action')
-            ->orderBy(Table\Generated\ActionTable::COLUMN_NAME, 'ASC')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        $result = $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
-
         $actions = [];
-        foreach ($result as $row) {
-            $actions[] = $this->newAction($row);
+        foreach ($this->actionTable->findAll($condition, 0, 0, Table\Generated\ActionColumn::NAME, \PSX\Sql\OrderBy::ASC) as $row) {
+            $actions[] = $this->newAction($row->toRecord()->getAll());
         }
 
         return $actions;
@@ -99,21 +86,8 @@ class ActionRepository implements Repository\ActionInterface
         $condition->equals(Table\Generated\ActionTable::COLUMN_TENANT_ID, $this->frameworkConfig->getTenantId());
         $condition->equals($column, $id);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                Table\Generated\ActionTable::COLUMN_ID,
-                Table\Generated\ActionTable::COLUMN_NAME,
-                Table\Generated\ActionTable::COLUMN_CLASS,
-                Table\Generated\ActionTable::COLUMN_ASYNC,
-                Table\Generated\ActionTable::COLUMN_CONFIG,
-                Table\Generated\ActionTable::COLUMN_DATE,
-                Table\Generated\ActionTable::COLUMN_METADATA,
-            ])
-            ->from('fusio_action', 'action')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        $row = $this->connection->fetchAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
+        $actionRow = $this->actionTable->findOneBy($condition);
+        $row = $actionRow !== null ? $actionRow->toRecord()->getAll() : null;
 
         if (!empty($row)) {
             if ($hash !== null) {
@@ -166,16 +140,7 @@ class ActionRepository implements Repository\ActionInterface
         $condition->equals(Table\Generated\ActionCommitTable::COLUMN_ACTION_ID, $actionId);
         $condition->equals(Table\Generated\ActionCommitTable::COLUMN_COMMIT_HASH, $hash);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                Table\Generated\ActionCommitTable::COLUMN_CONFIG,
-            ])
-            ->from('fusio_action_commit', 'action_commit')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        $config = $this->connection->fetchOne($queryBuilder->getSQL(), $queryBuilder->getParameters());
-
-        return !empty($config) ? $config : null;
+        $commit = $this->actionCommitTable->findOneBy($condition);
+        return $commit !== null ? $commit->getConfig() : null;
     }
 }

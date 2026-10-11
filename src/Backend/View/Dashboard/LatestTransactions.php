@@ -39,6 +39,26 @@ class LatestTransactions extends ViewAbstract
     {
         $condition = Condition::withAnd();
         $condition->equals(Table\Generated\TransactionTable::COLUMN_TENANT_ID, $context->getTenantId());
+    if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+        $rows = $this->storage->rawFind('fusio_transaction', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), [
+            'sort'  => ['id' => -1],
+            'limit' => 6,
+        ]);
+        $entries = [];
+        foreach ($rows as $row) {
+            $entries[] = [
+                    'id'            => (int) ($row['id'] ?? 0),
+                    'user_id'       => (int) ($row['user_id'] ?? 0),
+                    'plan_id'       => (int) ($row['plan_id'] ?? 0),
+                    'transactionId' => $row['transaction_id'] ?? null,
+                    'amount'        => isset($row['amount']) ? round(((int) $row['amount']) / 100, 2) : null,
+                    'date'          => isset($row['insert_date']) ? (new \DateTime((string) $row['insert_date']))->format(\DateTime::RFC3339) : null,
+                ];
+        }
+        return ['entry' => $entries];
+    }
+
+
 
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select([

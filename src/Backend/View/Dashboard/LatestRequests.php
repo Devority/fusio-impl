@@ -40,6 +40,24 @@ class LatestRequests extends ViewAbstract
         $condition = Condition::withAnd();
         $condition->equals(Table\Generated\LogTable::COLUMN_TENANT_ID, $context->getTenantId());
         $condition->equals(Table\Generated\LogTable::COLUMN_CATEGORY_ID, $context->getUser()->getCategoryId());
+    if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+        $rows = $this->storage->rawFind('fusio_log', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), [
+            'sort'  => ['id' => -1],
+            'limit' => 6,
+        ]);
+        $entries = [];
+        foreach ($rows as $row) {
+            $entries[] = [
+                    'id'   => (int) ($row['id'] ?? 0),
+                    'path' => $row['path'] ?? null,
+                    'ip'   => $row['ip'] ?? null,
+                    'date' => isset($row['date']) ? (new \DateTime((string) $row['date']))->format(\DateTime::RFC3339) : null,
+                ];
+        }
+        return ['entry' => $entries];
+    }
+
+
 
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select([

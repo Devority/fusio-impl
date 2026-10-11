@@ -41,6 +41,22 @@ class LatestApps extends ViewAbstract
         $condition->equals(Table\Generated\AppTable::COLUMN_TENANT_ID, $context->getTenantId());
         $condition->equals(Table\Generated\AppTable::COLUMN_STATUS, Table\App::STATUS_ACTIVE);
 
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            $rows = $this->storage->rawFind('fusio_app', \PSX\Sql\MongoDB\ConditionTranslator::translate($condition), [
+                'sort'  => ['id' => -1],
+                'limit' => 6,
+            ]);
+            $entries = [];
+            foreach ($rows as $row) {
+                $entries[] = [
+                    'id'   => (int) ($row['id'] ?? 0),
+                    'name' => $row['name'] ?? null,
+                    'date' => isset($row['date']) ? (new \DateTime((string) $row['date']))->format(\DateTime::RFC3339) : null,
+                ];
+            }
+            return ['entry' => $entries];
+        }
+
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select([
                 'app.' . Table\Generated\AppTable::COLUMN_ID,

@@ -40,10 +40,13 @@ class ConnectionRepository implements Repository\ConnectionInterface
     private Connection $connection;
     private FrameworkConfig $frameworkConfig;
 
-    public function __construct(Connection $connection, FrameworkConfig $frameworkConfig)
+    private Table\Connection $connectionTable;
+
+    public function __construct(Connection $connection, FrameworkConfig $frameworkConfig, Table\Connection $connectionTable)
     {
         $this->connection = $connection;
         $this->frameworkConfig = $frameworkConfig;
+        $this->connectionTable = $connectionTable;
     }
 
     public function getAll(): array
@@ -52,24 +55,9 @@ class ConnectionRepository implements Repository\ConnectionInterface
         $condition->equals(Table\Generated\ConnectionTable::COLUMN_TENANT_ID, $this->frameworkConfig->getTenantId());
         $condition->equals(Table\Generated\ConnectionTable::COLUMN_STATUS, Table\Connection::STATUS_ACTIVE);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                Table\Generated\ConnectionTable::COLUMN_ID,
-                Table\Generated\ConnectionTable::COLUMN_NAME,
-                Table\Generated\ConnectionTable::COLUMN_CLASS,
-                Table\Generated\ConnectionTable::COLUMN_CONFIG,
-                Table\Generated\ConnectionTable::COLUMN_METADATA,
-            ])
-            ->from('fusio_connection', 'connection')
-            ->orderBy(Table\Generated\ConnectionTable::COLUMN_NAME, 'ASC')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        $result = $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
-
         $connections = [];
-        foreach ($result as $row) {
-            $connections[] = $this->newConnection($row);
+        foreach ($this->connectionTable->findAll($condition, 0, 0, Table\Generated\ConnectionColumn::NAME, \PSX\Sql\OrderBy::ASC) as $row) {
+            $connections[] = $this->newConnection($row->toRecord()->getAll());
         }
 
         return $connections;
@@ -87,22 +75,9 @@ class ConnectionRepository implements Repository\ConnectionInterface
         $condition->equals(Table\Generated\ConnectionTable::COLUMN_TENANT_ID, $this->frameworkConfig->getTenantId());
         $condition->equals($column, $id);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                Table\Generated\ConnectionTable::COLUMN_ID,
-                Table\Generated\ConnectionTable::COLUMN_NAME,
-                Table\Generated\ConnectionTable::COLUMN_CLASS,
-                Table\Generated\ConnectionTable::COLUMN_CONFIG,
-                Table\Generated\ConnectionTable::COLUMN_METADATA,
-            ])
-            ->from('fusio_connection', 'connection')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        $row = $this->connection->fetchAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
-
-        if (!empty($row)) {
-            return $this->newConnection($row);
+        $conn = $this->connectionTable->findOneBy($condition);
+        if ($conn !== null) {
+            return $this->newConnection($conn->toRecord()->getAll());
         } else {
             return null;
         }

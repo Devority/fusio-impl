@@ -39,11 +39,13 @@ class AgentRepository implements Repository\AgentInterface
 {
     private Connection $connection;
     private Service\System\FrameworkConfig $frameworkConfig;
+    private Table\Agent $agentTable;
 
-    public function __construct(Connection $connection, Service\System\FrameworkConfig $frameworkConfig)
+    public function __construct(Connection $connection, Service\System\FrameworkConfig $frameworkConfig, Table\Agent $agentTable)
     {
         $this->connection = $connection;
         $this->frameworkConfig = $frameworkConfig;
+        $this->agentTable = $agentTable;
     }
 
     public function getAll(): array
@@ -52,23 +54,9 @@ class AgentRepository implements Repository\AgentInterface
         $condition->equals(Table\Generated\AgentTable::COLUMN_TENANT_ID, $this->frameworkConfig->getTenantId());
         $condition->equals(Table\Generated\AgentTable::COLUMN_STATUS, Table\Agent::STATUS_ACTIVE);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                Table\Generated\AgentTable::COLUMN_ID,
-                Table\Generated\AgentTable::COLUMN_NAME,
-                Table\Generated\AgentTable::COLUMN_DESCRIPTION,
-                Table\Generated\AgentTable::COLUMN_METADATA,
-            ])
-            ->from('fusio_agent', 'agent')
-            ->orderBy(Table\Generated\AgentTable::COLUMN_NAME, 'ASC')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        $result = $this->connection->fetchAllAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
-
         $actions = [];
-        foreach ($result as $row) {
-            $actions[] = $this->newAgent($row);
+        foreach ($this->agentTable->findAll($condition, 0, 0, Table\Generated\AgentColumn::NAME, \PSX\Sql\OrderBy::ASC) as $row) {
+            $actions[] = $this->newAgent($row->toRecord()->getAll());
         }
 
         return $actions;
@@ -90,21 +78,9 @@ class AgentRepository implements Repository\AgentInterface
         $condition->equals(Table\Generated\ActionTable::COLUMN_TENANT_ID, $this->frameworkConfig->getTenantId());
         $condition->equals($column, $id);
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select([
-                Table\Generated\AgentTable::COLUMN_ID,
-                Table\Generated\AgentTable::COLUMN_NAME,
-                Table\Generated\AgentTable::COLUMN_DESCRIPTION,
-                Table\Generated\AgentTable::COLUMN_METADATA,
-            ])
-            ->from('fusio_agent', 'agent')
-            ->where($condition->getExpression($this->connection->getDatabasePlatform()))
-            ->setParameters($condition->getValues());
-
-        $row = $this->connection->fetchAssociative($queryBuilder->getSQL(), $queryBuilder->getParameters());
-
-        if (!empty($row)) {
-            return $this->newAgent($row);
+        $agent = $this->agentTable->findOneBy($condition);
+        if ($agent !== null) {
+            return $this->newAgent($agent->toRecord()->getAll());
         } else {
             return null;
         }

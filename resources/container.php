@@ -194,5 +194,10 @@ return static function (ContainerConfigurator $container) {
             ->arg('$storage', \PSX\Sql\MongoDB\MongoStorage::fromDsn($connectionDsn));
         $services->alias(\PSX\Sql\TableManagerInterface::class, \Fusio\Impl\Table\Mongo\MongoTableManager::class);
         $services->alias(\PSX\Sql\TableManager::class, \Fusio\Impl\Table\Mongo\MongoTableManager::class);
+        // satisfy Doctrine\DBAL\Connection type-hints with an in-memory sqlite
+        // connection so DI still resolves; code paths under MongoDB never use it
+        $services->set(\Doctrine\DBAL\Connection::class)
+            ->factory([\Doctrine\DBAL\DriverManager::class, 'getConnection'])
+            ->args([['driver' => 'pdo_sqlite', 'memory' => true]]);
     }
 };
