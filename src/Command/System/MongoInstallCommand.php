@@ -69,6 +69,17 @@ class MongoInstallCommand extends Command
 
         $output->writeln('Seeding MongoDB installation data...');
         MongoDataSyncronizer::sync($storage, $this->frameworkConfig->getProjectKey());
+
+        $output->writeln('Creating indexes...');
+        MongoStorage::ensureIndexes($storage->getDatabase());
+
+        $output->writeln('Recording migration state...');
+        $versions = array_map(
+            fn (string $file): string => basename($file, '.php'),
+            glob(__DIR__ . '/../../Migrations/Version*.php') ?: []
+        );
+        MongoStorage::recordMigrations($storage->getDatabase(), $versions);
+
         $output->writeln('<info>Done — Fusio seed data written to MongoDB.</info>');
 
         return self::SUCCESS;
