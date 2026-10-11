@@ -188,7 +188,7 @@ return static function (ContainerConfigurator $container) {
 
     // MongoDB storage backend: when FUSIO_CONNECTION points to a mongodb:// DSN
     // all Table persistence is served by MongoStorage instead of Doctrine DBAL
-    $connectionDsn = (string) (getenv('APP_CONNECTION') ?: getenv('FUSIO_CONNECTION') ?: '');
+        $connectionDsn = (string) ($_ENV['APP_CONNECTION'] ?? $_SERVER['APP_CONNECTION'] ?? getenv('APP_CONNECTION') ?: getenv('FUSIO_CONNECTION') ?: '');
     if (str_starts_with($connectionDsn, 'mongodb://') || str_starts_with($connectionDsn, 'mongodb+srv://')) {
         $services->set(\Fusio\Impl\Table\Mongo\MongoTableManager::class)
             ->factory([\Fusio\Impl\Table\Mongo\MongoTableManager::class, 'fromDsn'])
