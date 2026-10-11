@@ -37,16 +37,25 @@ class ConnectionTransaction
     private Connector $connector;
     private Connection $connection;
 
-    public function __construct(ConnectionInterface $connectionRepository, Connector $connector, Connection $connection)
+    private ?\PSX\Sql\Storage\StorageInterface $storage = null;
+
+    public function __construct(ConnectionInterface $connectionRepository, Connector $connector, Connection $connection, \PSX\Sql\TableManagerInterface $tableManager)
     {
         $this->connectionRepository = $connectionRepository;
         $this->connector = $connector;
         $this->connection = $connection;
+        if ($tableManager instanceof \PSX\Sql\Storage\StorageAwareTableManagerInterface) {
+            $this->storage = $tableManager->getStorage();
+        }
     }
 
     public function beginTransaction(): void
     {
-        $this->connection->beginTransaction();
+        if ($this->storage !== null) {
+            $this->storage->beginTransaction();
+        } else {
+            $this->connection->beginTransaction();
+        }
 
         $connections = $this->connectionRepository->getAll();
         foreach ($connections as $connection) {
@@ -59,7 +68,11 @@ class ConnectionTransaction
 
     public function rollBack(): void
     {
-        $this->connection->rollBack();
+        if ($this->storage !== null) {
+            $this->storage->rollBack();
+        } else {
+            $this->connection->rollBack();
+        }
 
         $connections = $this->connectionRepository->getAll();
         foreach ($connections as $connection) {

@@ -21,6 +21,7 @@
 namespace Fusio\Impl\Service\System;
 
 use Doctrine\DBAL\Connection;
+use Fusio\Impl\Table;
 
 /**
  * Cleaner
@@ -51,50 +52,43 @@ class Cleaner
 
     private function cleanUpExpiredTokens(): void
     {
-        $this->connection->executeStatement('DELETE FROM fusio_token WHERE expire < :now', [
-            'now' => (new \DateTime('first day of last month'))->format('Y-m-d H:i:s'),
-        ]);
+        $this->purge(Table\Token::class, Table\Generated\TokenTable::COLUMN_EXPIRE, new \DateTime('first day of last month'));
     }
 
     private function cleanUpIdentityRequests(): void
     {
-        $this->connection->executeStatement('DELETE FROM fusio_identity_request WHERE insert_date < :now', [
-            'now' => (new \DateTime('first day of last month'))->format('Y-m-d H:i:s'),
-        ]);
+        $this->purge(Table\Generated\IdentityRequestTable::class, Table\Generated\IdentityRequestTable::COLUMN_INSERT_DATE, new \DateTime('first day of last month'));
     }
 
     private function cleanUpWebhookResponses(): void
     {
-        $this->connection->executeStatement('DELETE FROM fusio_webhook_response WHERE insert_date < :now', [
-            'now' => (new \DateTime('first day of last month'))->format('Y-m-d H:i:s'),
-        ]);
+        $this->purge(Table\Webhook\Response::class, Table\Generated\WebhookResponseTable::COLUMN_INSERT_DATE, new \DateTime('first day of last month'));
     }
 
     private function cleanUpCronjobErrors(): void
     {
-        $this->connection->executeStatement('DELETE FROM fusio_cronjob_error WHERE insert_date < :now', [
-            'now' => (new \DateTime('first day of -3 months'))->format('Y-m-d H:i:s'),
-        ]);
+        $this->purge(Table\Cronjob\Error::class, Table\Generated\CronjobErrorTable::COLUMN_INSERT_DATE, new \DateTime('first day of -3 months'));
     }
 
     private function cleanUpLogErrors(): void
     {
-        $this->connection->executeStatement('DELETE FROM fusio_log_error WHERE insert_date < :now', [
-            'now' => (new \DateTime('first day of -3 months'))->format('Y-m-d H:i:s'),
-        ]);
+        $this->purge(Table\Log\Error::class, Table\Generated\LogErrorTable::COLUMN_INSERT_DATE, new \DateTime('first day of -3 months'));
     }
 
     private function cleanUpFirewallExpired(): void
     {
-        $this->connection->executeStatement('DELETE FROM fusio_firewall WHERE expire < :now', [
-            'now' => (new \DateTime('first day of last month'))->format('Y-m-d H:i:s'),
-        ]);
+        $this->purge(Table\Firewall::class, Table\Generated\FirewallTable::COLUMN_EXPIRE, new \DateTime('first day of last month'));
     }
 
     private function cleanUpFirewallLogs(): void
     {
-        $this->connection->executeStatement('DELETE FROM fusio_firewall_log WHERE insert_date < :now', [
-            'now' => (new \DateTime('first day of -3 months'))->format('Y-m-d H:i:s'),
-        ]);
+        $this->purge(Table\Firewall\Log::class, Table\Generated\FirewallLogTable::COLUMN_INSERT_DATE, new \DateTime('first day of -3 months'));
+    }
+
+    private function purge(string $tableClass, string $column, \DateTime $before): void
+    {
+        $condition = \PSX\Sql\Condition::withAnd();
+        $condition->less($column, $before);
+        $this->tableManager->getTable($tableClass)->deleteByCondition($condition);
     }
 }

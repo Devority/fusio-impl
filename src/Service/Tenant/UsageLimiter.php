@@ -35,11 +35,15 @@ class UsageLimiter
 {
     private Connection $connection;
     private LimiterInterface $limiter;
+    private ?\PSX\Sql\Storage\StorageInterface $storage = null;
 
-    public function __construct(Connection $connection, LimiterInterface $limiter)
+    public function __construct(Connection $connection, LimiterInterface $limiter, \PSX\Sql\TableManagerInterface $tableManager)
     {
         $this->connection = $connection;
         $this->limiter = $limiter;
+        if ($tableManager instanceof \PSX\Sql\Storage\StorageAwareTableManagerInterface) {
+            $this->storage = $tableManager->getStorage();
+        }
     }
 
     public function assertActionCount(?string $tenantId): void
@@ -251,6 +255,10 @@ class UsageLimiter
     {
         if ($tenantId === null) {
             return 0;
+        }
+
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            return $this->storage->rawCount($tableName, ['tenant_id' => $tenantId]);
         }
 
         return (int) $this->connection->fetchOne('SELECT COUNT(id) AS cnt FROM ' . $tableName . ' WHERE tenant_id = :tenant_id', [

@@ -37,8 +37,13 @@ use Generator;
  */
 final class LogRotator
 {
-    public function __construct(private Connection $connection)
+    private ?\PSX\Sql\Storage\StorageInterface $storage = null;
+
+    public function __construct(private Connection $connection, \PSX\Sql\TableManagerInterface $tableManager)
     {
+        if ($tableManager instanceof \PSX\Sql\Storage\StorageAwareTableManagerInterface) {
+            $this->storage = $tableManager->getStorage();
+        }
     }
 
     /**
@@ -46,6 +51,11 @@ final class LogRotator
      */
     public function rotate(): Generator
     {
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            yield from $this->archiveMongo();
+            return;
+        }
+
         $schemaManager = $this->connection->createSchemaManager();
         $schema = $schemaManager->introspectSchema();
 
@@ -53,6 +63,29 @@ final class LogRotator
         yield from $this->archiveLogErrorTable($schemaManager, $schema);
         yield from $this->archiveLogTable($schemaManager, $schema);
         yield from $this->archiveCronjobErrorTable($schemaManager, $schema);
+    }
+
+    /**
+     * @return Generator<string>
+     */
+    private function archiveMongo(): Generator
+    {
+        $db = $this->storage->getDatabase();
+        $suffix = date('Ymd');
+        foreach (['fusio_audit', 'fusio_log_error', 'fusio_log', 'fusio_cronjob_error'] as $collection) {
+            $archiveName = $collection . '_' . $suffix;
+            $docs = $db->selectCollection($collection)->find()->toArray();
+            if (empty($docs)) {
+                yield 'Nothing to archive in ' . $collection;
+                continue;
+            }
+
+            $db->selectCollection($archiveName)->insertMany($docs);
+            yield 'Copied ' . count($docs) . ' documents to ' . $archiveName;
+
+            $db->selectCollection($collection)->deleteMany([]);
+            yield 'Truncated ' . $collection;
+        }
     }
 
     /**

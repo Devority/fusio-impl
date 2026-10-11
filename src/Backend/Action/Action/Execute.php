@@ -48,9 +48,14 @@ readonly class Execute implements ActionInterface
 {
     private Converter $exceptionConverter;
 
-    public function __construct(private Action\Executor $actionExecutorService, private Connection $connection)
+    private ?\PSX\Sql\Storage\StorageInterface $storage;
+
+    public function __construct(private Action\Executor $actionExecutorService, private Connection $connection, \PSX\Sql\TableManagerInterface $tableManager)
     {
         $this->exceptionConverter = new Converter(true);
+        if ($tableManager instanceof \PSX\Sql\Storage\StorageAwareTableManagerInterface) {
+            $this->storage = $tableManager->getStorage();
+        }
     }
 
     public function handle(RequestInterface $request, ParametersInterface $configuration, ContextInterface $context): mixed
@@ -59,7 +64,11 @@ readonly class Execute implements ActionInterface
 
         assert($body instanceof ActionExecuteRequest);
 
-        $this->connection->beginTransaction();
+        if ($this->storage !== null) {
+            $this->storage->beginTransaction();
+        } else {
+            $this->connection->beginTransaction();
+        }
 
         try {
             $response = $this->actionExecutorService->execute(
@@ -105,7 +114,11 @@ readonly class Execute implements ActionInterface
             ];
         }
 
-        $this->connection->rollBack();
+        if ($this->storage !== null) {
+            $this->storage->rollBack();
+        } else {
+            $this->connection->rollBack();
+        }
 
         return $return;
     }

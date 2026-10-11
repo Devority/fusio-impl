@@ -73,22 +73,22 @@ class Log
             $path = substr($path, 0, 1023);
         }
 
-        $this->connection->insert(Table\Generated\LogTable::NAME, array(
-            Table\Generated\LogTable::COLUMN_TENANT_ID => $context->getTenantId(),
-            Table\Generated\LogTable::COLUMN_CATEGORY_ID => $context->getOperation()->getCategoryId(),
-            Table\Generated\LogTable::COLUMN_OPERATION_ID => $context->getOperation()->getId(),
-            Table\Generated\LogTable::COLUMN_APP_ID => $context->getAppId(),
-            Table\Generated\LogTable::COLUMN_USER_ID => $context->getUserId(),
-            Table\Generated\LogTable::COLUMN_IP => $remoteIp,
-            Table\Generated\LogTable::COLUMN_USER_AGENT => $userAgent,
-            Table\Generated\LogTable::COLUMN_METHOD => $method,
-            Table\Generated\LogTable::COLUMN_PATH => $path,
-            Table\Generated\LogTable::COLUMN_HEADER => $request !== null ? $this->getHeadersAsString($request) : '',
-            Table\Generated\LogTable::COLUMN_BODY => $request !== null ? $this->getBodyAsString($request) : '',
-            Table\Generated\LogTable::COLUMN_DATE => $now->format('Y-m-d H:i:s'),
-        ));
+        $row = new Table\Generated\LogRow();
+        $row->setTenantId($context->getTenantId());
+        $row->setCategoryId($context->getOperation()->getCategoryId());
+        $row->setOperationId($context->getOperation()->getId());
+        $row->setAppId($context->getAppId());
+        $row->setUserId($context->getUserId());
+        $row->setIp($remoteIp);
+        $row->setUserAgent($userAgent);
+        $row->setMethod($method);
+        $row->setPath($path);
+        $row->setHeader($request !== null ? $this->getHeadersAsString($request) : '');
+        $row->setBody($request !== null ? $this->getBodyAsString($request) : '');
+        $row->setDate(\PSX\DateTime\LocalDateTime::now());
+        $this->logTable->create($row);
 
-        $this->stack[self::$level][self::LOG_ID] = (int) $this->connection->lastInsertId();
+        $this->stack[self::$level][self::LOG_ID] = $this->logTable->getLastInsertId();
     }
 
     public function finish(int $responseCode): void
@@ -104,12 +104,12 @@ class Log
 
         $endTime = hrtime(true);
 
-        $this->connection->update(Table\Generated\LogTable::NAME, [
-            Table\Generated\LogTable::COLUMN_RESPONSE_CODE => $responseCode,
-            Table\Generated\LogTable::COLUMN_EXECUTION_TIME => (int) (($endTime - $startTime) / 1e+6),
-        ], [
-            Table\Generated\LogTable::COLUMN_ID => $logId,
-        ]);
+        $update = $this->logTable->find($logId);
+        if ($update !== null) {
+            $update->setResponseCode($responseCode);
+            $update->setExecutionTime((int) (($endTime - $startTime) / 1e+6));
+            $this->logTable->updateById($logId, $update);
+        }
     }
 
     public function error(\Throwable $exception): void
@@ -134,14 +134,14 @@ class Log
             $message = substr($message, 0, 500);
         }
 
-        $this->connection->insert(Table\Generated\LogErrorTable::NAME, [
-            Table\Generated\LogErrorTable::COLUMN_LOG_ID => $logId,
-            Table\Generated\LogErrorTable::COLUMN_MESSAGE => $message,
-            Table\Generated\LogErrorTable::COLUMN_TRACE => $exception->getTraceAsString(),
-            Table\Generated\LogErrorTable::COLUMN_FILE => $exception->getFile(),
-            Table\Generated\LogErrorTable::COLUMN_LINE => $exception->getLine(),
-            Table\Generated\LogErrorTable::COLUMN_INSERT_DATE => date('Y-m-d H:i:s'),
-        ]);
+        $error = new Table\Generated\LogErrorRow();
+        $error->setLogId($logId);
+        $error->setMessage($message);
+        $error->setTrace($exception->getTraceAsString());
+        $error->setFile($exception->getFile());
+        $error->setLine($exception->getLine());
+        $error->setInsertDate(\PSX\DateTime\LocalDateTime::now());
+        $this->logErrorTable->create($error);
     }
 
     protected function getHeadersAsString(RequestInterface $request): string

@@ -40,14 +40,47 @@ use PSX\Http\Exception as StatusCode;
  * @license http://www.apache.org/licenses/LICENSE-2.0
  * @link    https://www.fusio-project.org
  */
-readonly class Generator
+class Generator
 {
+    private ?\PSX\Sql\Storage\StorageInterface $storage = null;
+
     public function __construct(
         private Connection $connection,
         private GeneratorProvider $generatorProvider,
         private EntityCreator $entityCreator,
-        private ElementFactoryInterface $elementFactory
+        private ElementFactoryInterface $elementFactory,
+        \PSX\Sql\TableManagerInterface $tableManager
     ) {
+        if ($tableManager instanceof \PSX\Sql\Storage\StorageAwareTableManagerInterface) {
+            $this->storage = $tableManager->getStorage();
+        }
+    }
+
+    private function beginTransaction(): void
+    {
+        if ($this->storage !== null) {
+            $this->storage->beginTransaction();
+        } else {
+            $this->beginTransaction();
+        }
+    }
+
+    private function commit(): void
+    {
+        if ($this->storage !== null) {
+            $this->storage->commit();
+        } else {
+            $this->commit();
+        }
+    }
+
+    private function rollBack(): void
+    {
+        if ($this->storage !== null) {
+            $this->storage->rollBack();
+        } else {
+            $this->rollBack();
+        }
     }
 
     public function create(string $providerName, Backend\GeneratorProvider $config, UserContext $context): void
@@ -62,16 +95,16 @@ readonly class Generator
         $provider = $this->getProvider($providerName);
         $provider->setup($setup, $configuration);
 
-        $this->connection->beginTransaction();
+        $this->beginTransaction();
 
         try {
             $this->entityCreator->createSchemas($setup->getSchemas(), $prefix, $context);
             $this->entityCreator->createActions($setup->getActions(), $prefix, $context);
             $this->entityCreator->createOperations($setup->getOperations(), $scopes, $public, $basePath, $prefix, $context);
 
-            $this->connection->commit();
+            $this->commit();
         } catch (\Throwable $e) {
-            $this->connection->rollBack();
+            $this->rollBack();
 
             throw $e;
         }

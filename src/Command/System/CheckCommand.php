@@ -39,7 +39,7 @@ class CheckCommand extends Command
 {
     use TypeSafeTrait;
 
-    public function __construct(private Connection $connection)
+    public function __construct(private Connection $connection, private readonly \PSX\Sql\TableManagerInterface $tableManager)
     {
         parent::__construct();
     }
@@ -88,6 +88,12 @@ class CheckCommand extends Command
      */
     protected function checkUser(): bool
     {
+        if ($this->tableManager instanceof \PSX\Sql\Storage\StorageAwareTableManagerInterface) {
+            $storage = $this->tableManager->getStorage();
+            if ($storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+                return $storage->rawCount('fusio_user') > 1;
+            }
+        }
         return $this->connection->fetchOne('SELECT COUNT(*) FROM fusio_user') > 1;
     }
 }

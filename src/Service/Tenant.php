@@ -22,6 +22,7 @@ namespace Fusio\Impl\Service;
 
 use Doctrine\DBAL\Connection;
 use Fusio\Engine\ContextInterface;
+use Fusio\Impl\Installation\MongoDataSyncronizer;
 use Fusio\Impl\Installation\NewInstallation;
 use Fusio\Impl\Installation\Reference;
 use PSX\Http\Exception\BadRequestException;
@@ -63,10 +64,16 @@ class Tenant
     ];
 
     private Connection $connection;
+    private \PSX\Sql\TableManagerInterface $tableManager;
+    private ?\PSX\Sql\Storage\StorageInterface $storage = null;
 
-    public function __construct(Connection $connection)
+    public function __construct(Connection $connection, \PSX\Sql\TableManagerInterface $tableManager)
     {
         $this->connection = $connection;
+        $this->tableManager = $tableManager;
+        if ($tableManager instanceof \PSX\Sql\Storage\StorageAwareTableManagerInterface) {
+            $this->storage = $tableManager->getStorage();
+        }
     }
 
     public function setup(string $tenantId, ContextInterface $context): void
@@ -79,24 +86,28 @@ class Tenant
             throw new BadRequestException('Provided tenant must be in the format: [A-Za-z0-9_]{3,64}');
         }
 
-        $count = (int) $this->connection->fetchOne('SELECT COUNT(*) AS cnt FROM fusio_config WHERE tenant_id = :tenant_id', [
-            'tenant_id' => $tenantId,
-        ]);
+        $countCondition = \PSX\Sql\Condition::withAnd();
+        $countCondition->equals(\Fusio\Impl\Table\Generated\ConfigTable::COLUMN_TENANT_ID, $tenantId);
+        $count = $this->tableManager->getTable(\Fusio\Impl\Table\Config::class)->getCount($countCondition);
 
         if ($count > 0) {
             throw new BadRequestException('Provided tenant is already configured');
         }
 
-        $inserts = NewInstallation::getData($tenantId)->toArray();
-        foreach ($inserts as $tableName => $rows) {
-            foreach ($rows as $row) {
-                foreach ($row as $key => $value) {
-                    if ($value instanceof Reference) {
-                        $row[$key] = $value->resolve($this->connection);
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            MongoDataSyncronizer::sync($this->storage);
+        } else {
+            $inserts = NewInstallation::getData($tenantId)->toArray();
+            foreach ($inserts as $tableName => $rows) {
+                foreach ($rows as $row) {
+                    foreach ($row as $key => $value) {
+                        if ($value instanceof Reference) {
+                            $row[$key] = $value->resolve($this->connection);
+                        }
                     }
-                }
 
-                $this->connection->insert($tableName, $row);
+                    $this->connection->insert($tableName, $row);
+                }
             }
         }
     }
@@ -118,6 +129,23 @@ class Tenant
             'fusio_scope' => ['fusio_scope_operation' => 'scope_id', 'fusio_plan_scope' => 'scope_id', 'fusio_role_scope' => 'scope_id', 'fusio_user_scope' => 'scope_id', 'fusio_app_scope' => 'scope_id'],
             'fusio_user' => ['fusio_user_grant' => 'user_id', 'fusio_user_scope' => 'user_id'],
         ];
+
+        if ($this->storage instanceof \PSX\Sql\MongoDB\MongoStorage) {
+            $db = $this->storage->getDatabase();
+            foreach (self::TENANT_TABLES as $tableName) {
+                if (isset($relations[$tableName])) {
+                    $ids = [];
+                    foreach ($db->selectCollection($tableName)->find(['tenant_id' => $tenantId], ['projection' => ['id' => 1]]) as $row) {
+                        $ids[] = $row['id'];
+                    }
+                    foreach ($relations[$tableName] as $foreignTable => $column) {
+                        $db->selectCollection($foreignTable)->deleteMany([$column => ['$in' => $ids]]);
+                    }
+                }
+                $db->selectCollection($tableName)->deleteMany(['tenant_id' => $tenantId]);
+            }
+            return;
+        }
 
         foreach (self::TENANT_TABLES as $tableName) {
             if (isset($relations[$tableName])) {

@@ -54,6 +54,15 @@ class WaitForCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $connection = $this->config->get('psx_connection');
+
+        if (is_string($connection) && (str_starts_with($connection, 'mongodb://') || str_starts_with($connection, 'mongodb+srv://'))) {
+            $this->waitFor('mongodb', $output, function() use ($connection): void {
+                $storage = \PSX\Sql\MongoDB\MongoStorage::fromDsn($connection);
+                $storage->getDatabase()->command(['ping' => 1]);
+            });
+            return self::SUCCESS;
+        }
+
         if (is_string($connection)) {
             $params = new DsnParser()->parse($connection);
         } elseif (is_array($connection)) {
